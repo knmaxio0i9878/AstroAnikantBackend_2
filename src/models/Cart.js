@@ -9,13 +9,6 @@ const Cart = {
     product: {
         type: Schema.Types.ObjectId,
         ref: "Product"
-    },
-    order_dt: {
-        type: Date,
-    },
-    status: {
-        type: String,
-        default: "Pending"
     }
 }
 

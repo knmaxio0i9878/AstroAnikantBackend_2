@@ -33,7 +33,43 @@ const getAllCart = async(req,res) =>{
        })
 }
 
+const getSingleCart = async (req, res) => {
+
+    const id = req.params.id;
+    const cart = await userSchema.findById(id)
+    if (cart) {
+        res.status(200).json({
+            data: cart,
+            message: "Cart Fetched Successfully"
+        })
+    }
+    else {
+        res.status(404).json({
+            message: "Cart not Fetched Successfully"
+        })
+    }
+}
+
+
+const deleteCart = async (req, res) => {
+    const id = req.params.id;
+    const deleteCart = await cartSchema.findByIdAndDelete(id)
+    if (deleteCart) {
+        res.status(200).json({
+            data: deleteCart,
+            message: 'Cart deleted Successfully'
+        })
+    }
+    else {
+        res.status(404).json({
+            message: 'No such State found'
+        })
+    }
+}
+
 module.exports ={
     createCart,
-    getAllCart
+    getAllCart,
+    getSingleCart,
+    deleteCart
 }
