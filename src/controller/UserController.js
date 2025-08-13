@@ -40,7 +40,7 @@ const UserAdd = async (req, res) => {
 // get all useres
 const getAllUser = async (req, res) => {
 
-    const users = await userSchema.find();
+    const users = await userSchema.find()
     res.status(201).json({
         data: users,
         message: "Successfully got all the Users"

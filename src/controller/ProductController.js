@@ -121,9 +121,9 @@ const updateProduct = async (req, res) => {
 }
 
 const getSingleProduct = async (req, res) => {
-
-
-     const id = req.params.id;
+    console.log("dslkmo");
+    
+    const id = req.params.id;
     const product = await productSchema.findById(id)
     // const product = await productSchema.findById(id).populate("category")not working
 
