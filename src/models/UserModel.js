@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema({
         ref: "Product"
     },
     address: [{
+            societyName: {type:String,required: true},
             street: { type: String, required: true },
             city: { type: String,required:true },      // no required
             state: { type: String,required:true },     // no required
