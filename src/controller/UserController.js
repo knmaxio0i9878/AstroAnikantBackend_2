@@ -1,6 +1,7 @@
 const userSchema = require("../models/UserModel")
 const encrypt = require("../service/Encrypt")
 const tokenUtil = require("../service/Token")
+const mailUtil = require("../service/MailUtil")
 
 
 
@@ -22,6 +23,36 @@ const UserAdd = async (req, res) => {
         };
 
         const response = await userSchema.create(user);
+        const emailBody = `
+  <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f9f9f9;">
+    <h2 style="color: #2E4057;">Welcome to Astro!</h2>
+    <p style="color: #333; font-size: 16px;">
+      Hello,<strong>${user.name}</strong>, <br />
+      Your account has been successfully created with Astro. 🎉
+    </p>
+    
+    <p style="color: #555; font-size: 15px; margin-top: 15px;">
+      You can now explore amazing astro items and manage your life with ease.
+    </p>
+
+
+    <p style="color: #555; font-size: 14px;">
+      If you have any questions, feel free to contact us.
+    </p>
+    <p style="color: #555; font-size: 14px; margin-top: 5px;">
+      📞 Astro Office: <strong>8140950990</strong>
+    </p>
+
+    <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
+
+    <p style="color: #999; font-size: 12px;">
+      © ${new Date().getFullYear()} Astro. All rights reserved.
+    </p>
+  </div>
+`;
+
+        await mailUtil.sendingMail(user.email,"Success account created with Astro",emailBody)
+
 
         res.status(201).json({
             data: response,
