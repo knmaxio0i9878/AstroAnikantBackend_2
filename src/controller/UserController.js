@@ -40,7 +40,7 @@ const UserAdd = async (req, res) => {
       If you have any questions, feel free to contact us.
     </p>
     <p style="color: #555; font-size: 14px; margin-top: 5px;">
-      📞 Astro Office: <strong>8140950990</strong>
+      📞 Astro Office: <strong>98765 43210</strong>
     </p>
 
     <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />

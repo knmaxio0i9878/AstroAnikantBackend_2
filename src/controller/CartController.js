@@ -36,7 +36,7 @@ const getAllCart = async(req,res) =>{
 const getSingleCart = async (req, res) => {
 
     const id = req.params.id;
-    const cart = await userSchema.findById(id)
+    const cart = await cartSchema.findById(id)
     if (cart) {
         res.status(200).json({
             data: cart,
