@@ -132,6 +132,8 @@ const updateUser = async (req, res) => {
 const getSingleUser = async (req, res) => {
 
     const id = req.params.id;
+    console.log(id);
+    
     const user = await userSchema.findById(id)
     if (user) {
         res.status(200).json({
@@ -147,7 +149,7 @@ const getSingleUser = async (req, res) => {
 }
 
 // user validation for login
-const validateUser = async (req, res) => {
+const validateUser = async (req, res) => {  
     const email = req.body.email;
     const password = req.body.password;
 
