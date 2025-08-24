@@ -121,26 +121,22 @@ const updateProduct = async (req, res) => {
 }
 
 const getSingleProduct = async (req, res) => {
-    console.log("dslkmo");
-    
+  try {
     const id = req.params.id;
-    const product = await productSchema.findById(id)
-    // const product = await productSchema.findById(id).populate("category")not working
+    const product = await productSchema.findById(id);
 
-    if (product) {
-        res.status(200).json({
-            data: product,
-            message: "Product Fetched Successfully"
-        })
-    }
-    else {
-        res.status(404).json({
-            message: "Product not Fetched Successfully"
-        })
-        
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
     }
 
-}
+    res.status(200).json({
+      data: product,
+      message: "Product fetched successfully",
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching product", error: error.message });
+  }
+};
 
 module.exports = { 
     createProduct,
