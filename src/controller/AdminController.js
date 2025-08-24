@@ -45,7 +45,6 @@ const getAllAdmins = async (req, res) => {
 const getsingleadmin = async (req, res) => {
     const email = req.body.email;
     const password = req.body.password;
-
     // Find the user by email
     const validUser = await AdminModel.findOne({ email: email });
     console.log("vailduser", validUser);
