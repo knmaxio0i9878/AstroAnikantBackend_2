@@ -46,9 +46,7 @@ const createVisit = async (req, res) => {
     
     
     
-    const response = await visitsModel.create(visit)
-    
-    
+    const response = await visitsModel.create(visit)    
     if (response) {
         await mailUtil.sendingMail(visit.email,"Success Visit Booked !",emailBody)
         res.status(200).json({ message: "Visit Added Successfully", data: response })
@@ -90,9 +88,28 @@ const deleteVisit = async (req, res) => {
         })
     }
 }
+const getSingleVisit = async (req, res) => {
+
+    const id = req.params.id;
+    console.log(id);
+    
+    const visit = await visitsModel.findById(id)
+    if (visit) {
+        res.status(200).json({
+            data: visit,
+            message: "visit Fetched Successfully"
+        })
+    }
+    else {
+        res.status(404).json({
+            message: "visit not Fetched Successfully"
+        })
+    }
+}
 
 module.exports ={
     createVisit,
     getAllVisit,
-    deleteVisit
+    deleteVisit,
+    getSingleVisit
 }

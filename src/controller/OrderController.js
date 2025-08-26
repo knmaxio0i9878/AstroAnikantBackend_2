@@ -1,11 +1,53 @@
 const orderSchema = require("../models/OrderModel")
+const mailUtil = require("../service/MailUtil")
+
 
 const createOrder = async (req, res) => {
     const order = {
         cart: req.body.cart,
     }
+
+
+    const emailBody = `
+      <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f9f9f9;">
+        <h2 style="color: #2E4057;">Welcome to Astro!</h2>
+       <p style={{ color: "#333", fontSize: "16px" }}>
+              Hello, <strong>${order?.cart?.user?.name}</strong>, <br />
+              Your Astro-item ${order?.cart?.product?.name} has been successfully ordered on ${order?.order_dt}} . 🎉
+        </p>
+
+        <br/><br/>
+        
+        <p> Delivery Place : ${order?.cart?.user?.address?.societyName},${order?.cart?.user?.address?.street},
+        ${order?.cart?.user?.address?.city},${order?.cart?.user?.address?.pincode}</p>
+
+        <p style="color: #555; font-size: 15px; margin-top: 15px;">
+          Thanks for chosing Astro.
+        </p>
+    
+    
+        <p style="color: #555; font-size: 14px;">
+          If you have any questions, feel free to contact us.
+        </p>
+        <p style="color: #555; font-size: 14px; margin-top: 5px;">
+          📞 Astro Office: <strong>98765 43210</strong>
+        </p>
+    
+        <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
+    
+        <p style="color: #999; font-size: 12px;">
+          © ${new Date().getFullYear()} Astro. All rights reserved.
+        </p>
+      </div>
+    `;
+
     const response = await orderSchema.create(order)
     if (response) {
+        console.log('Sending mail to:', response?.cart?.user?.email);
+        console.log(response);
+        
+        // await mailUtil.sendingMail("pmakwana1908@gmail.com", "Order Placed !", emailBody);
+
         res.status(200).json({
             data: response,
             message: "Order Placed Successfully"
@@ -44,17 +86,17 @@ const getSingleOrder = async (req, res) => {
     try {
         // Fetch order and populate the necessary fields
         const order = await orderSchema.findById(id).populate("cart").populate({
-            path:"cart",
-            populate:{
-                path:"user"
+            path: "cart",
+            populate: {
+                path: "user"
             }
         }).populate({
-            path:"cart",
-            populate:{
-                path:"product"
+            path: "cart",
+            populate: {
+                path: "product"
             }
         })
-            
+
         if (order) {
             return res.status(200).json({
                 data: order,
@@ -66,10 +108,10 @@ const getSingleOrder = async (req, res) => {
             });
         }
     } catch (err) {
-        console.error(err);        
+        console.error(err);
         res.status(500).json({
             message: "Server Error",
-            error: err.message, 
+            error: err.message,
         });
     }
 };
@@ -92,7 +134,7 @@ const deleteOrder = async (req, res) => {
 }
 // const updateOrderComplete = async (req, res) => {
 //     const id = req.params.id
-    
+
 
 //     try {
 //         const order = await orderschema.findById(id).populate("user_id")
@@ -137,8 +179,8 @@ const deleteOrder = async (req, res) => {
 
 
 
-    
-    
+
+
 //     <p style="margin-top: 20px; color: #555;">If you have any questions, feel free to contact us.</p> <br />
 
 //     <p style="margin-top: 20px; color: #555;">AdVUE Office : 8140952934 </p> <br />
