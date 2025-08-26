@@ -1,0 +1,9 @@
+const visitController = require("../controller/VisitsController")
+const router = require("express").Router()
+
+router.post("/createvisit",visitController.createVisit)
+router.get("/getallvisit",visitController.getAllVisit)
+router.delete("/deletevisit",visitController.deleteVisit)
+
+
+module.exports = router

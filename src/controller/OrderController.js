@@ -2,7 +2,7 @@ const orderSchema = require("../models/OrderModel")
 
 const createOrder = async (req, res) => {
     const order = {
-        order: req.body.order,
+        cart: req.body.cart,
     }
     const response = await orderSchema.create(order)
     if (response) {
