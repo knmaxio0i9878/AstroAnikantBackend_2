@@ -58,11 +58,11 @@ const productSchema = new mongoose.Schema({
       default: false
     }
   }],
-  stoneType: {
-    type: String,
-    required: true,
-    trim: true
-  },
+  // stoneType: {
+  //   type: String,
+  //   required: true,
+  //   trim: true
+  // },
   astrologicalBenefits: [{
     type: String,
     trim: true

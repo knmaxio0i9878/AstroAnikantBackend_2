@@ -1,51 +1,62 @@
 const orderSchema = require("../models/OrderModel")
 const mailUtil = require("../service/MailUtil")
+const cartSchema = require("../models/Cart")
 
 
 const createOrder = async (req, res) => {
     const order = {
         cart: req.body.cart,
+        // Add other order-specific fields from req.body if needed
+        typeOfPayment: req.body.typeOfPayment
     }
-
-
-    const emailBody = `
-      <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f9f9f9;">
-        <h2 style="color: #2E4057;">Welcome to Astro!</h2>
-       <p style={{ color: "#333", fontSize: "16px" }}>
-              Hello, <strong>${order?.cart?.user?.name}</strong>, <br />
-              Your Astro-item ${order?.cart?.product?.name} has been successfully ordered on ${order?.order_dt}} . 🎉
-        </p>
-
-        <br/><br/>
-        
-        <p> Delivery Place : ${order?.cart?.user?.address?.societyName},${order?.cart?.user?.address?.street},
-        ${order?.cart?.user?.address?.city},${order?.cart?.user?.address?.pincode}</p>
-
-        <p style="color: #555; font-size: 15px; margin-top: 15px;">
-          Thanks for chosing Astro.
-        </p>
-    
-    
-        <p style="color: #555; font-size: 14px;">
-          If you have any questions, feel free to contact us.
-        </p>
-        <p style="color: #555; font-size: 14px; margin-top: 5px;">
-          📞 Astro Office: <strong>98765 43210</strong>
-        </p>
-    
-        <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
-    
-        <p style="color: #999; font-size: 12px;">
-          © ${new Date().getFullYear()} Astro. All rights reserved.
-        </p>
-      </div>
-    `;
 
     const response = await orderSchema.create(order)
     if (response) {
-        console.log('Sending mail to:', response?.cart?.user?.email);
-        console.log(response);
+         await cartSchema.findByIdAndUpdate(req.body.cart, { status: "Ordered" });
+        // Populate the cart with user and product details for email
+        const populatedOrder = await orderSchema.findById(response._id)
+            .populate({
+                path: 'cart',
+                populate: [
+                    { path: 'user' },
+                    { path: 'product' }
+                ]
+            });
+
+        console.log('Sending mail to:', populatedOrder?.cart?.user?.email);
+        console.log(populatedOrder)
+    // const emailBody = `
+    //   <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f9f9f9;">
+    //     <h2 style="color: #2E4057;">Welcome to Astro!</h2>
+    //    <p style={{ color: "#333", fontSize: "16px" }}>
+    //           Hello, <strong>${order?.cart?.user?.name}</strong>, <br />
+    //           Your Astro-item ${order?.cart?.product?.name} has been successfully ordered on ${order?.order_dt}} . 🎉
+    //     </p>
+
+    //     <br/><br/>
         
+    //     <p> Delivery Place : ${order?.cart?.user?.address?.societyName},${order?.cart?.user?.address?.street},
+    //     ${order?.cart?.user?.address?.city},${order?.cart?.user?.address?.pincode}</p>
+
+    //     <p style="color: #555; font-size: 15px; margin-top: 15px;">
+    //       Thanks for chosing Astro.
+    //     </p>
+    
+    
+    //     <p style="color: #555; font-size: 14px;">
+    //       If you have any questions, feel free to contact us.
+    //     </p>
+    //     <p style="color: #555; font-size: 14px; margin-top: 5px;">
+    //       📞 Astro Office: <strong>98765 43210</strong>
+    //     </p>
+    
+    //     <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
+    
+    //     <p style="color: #999; font-size: 12px;">
+    //       © ${new Date().getFullYear()} Astro. All rights reserved.
+    //     </p>
+    //   </div>
+    // `;
         // await mailUtil.sendingMail("pmakwana1908@gmail.com", "Order Placed !", emailBody);
 
         res.status(200).json({
@@ -60,42 +71,40 @@ const createOrder = async (req, res) => {
     }
 }
 const getAllOrder = async (req, res) => {
+    try {
+        const order = await orderSchema.find().populate({
+            path: "cart",
+            populate: [
+                { path: "user" },
+                { path: "product" }
+            ]
+        });
 
-    const order = await orderSchema.find().populate("cart").populate({
-        path: "cart",
-        populate: {
-            path: "user"
-        }
-    }).populate({
-        path: "cart",
-        populate: {
-            path: "product"
-        }
-    })
-    res.status(201).json({
-        data: order,
-        message: "Successfully got all the orders"
-    })
+        res.status(200).json({
+            data: order,
+            message: "Successfully got all the orders"
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({
+            message: "Server Error",
+            error: err.message,
+        });
+    }
 }
 
-
-
 const getSingleOrder = async (req, res) => {
-    const id = req.params.id;
+    const id = req.params.id;   
 
     try {
         // Fetch order and populate the necessary fields
-        const order = await orderSchema.findById(id).populate("cart").populate({
+        const order = await orderSchema.findById(id).populate({
             path: "cart",
-            populate: {
-                path: "user"
-            }
-        }).populate({
-            path: "cart",
-            populate: {
-                path: "product"
-            }
-        })
+            populate: [
+                { path: "user" },
+                { path: "product" }
+            ]
+        });
 
         if (order) {
             return res.status(200).json({
@@ -118,21 +127,32 @@ const getSingleOrder = async (req, res) => {
 
 const deleteOrder = async (req, res) => {
     const id = req.params.id;
-    const deleteOrder = await orderSchema.findByIdAndDelete(id)
-    console.log(deleteOrder);
-    if (deleteOrder) {
-        res.status(201).json({
-            data: deleteOrder,
-            message: 'Ordder deleted Successfully'
-        })
+    
+    try {
+        const deleteOrder = await orderSchema.findByIdAndDelete(id);
+        console.log(deleteOrder);
+        
+        if (deleteOrder) {
+            // Optional: Update cart status back to "In Cart" when order is deleted
+            await cartSchema.findByIdAndUpdate(deleteOrder.cart, { status: "In Cart" });
+            
+            res.status(200).json({
+                data: deleteOrder,
+                message: 'Order deleted Successfully'
+            });
+        } else {
+            res.status(404).json({
+                message: 'No such Order found'
+            });
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({
+            message: "Server Error",
+            error: err.message,
+        });
     }
-    else {
-        res.status(404).json({
-            message: 'No such State found'
-        })
-    }
-}
-// const updateOrderComplete = async (req, res) => {
+}// const updateOrderComplete = async (req, res) => {
 //     const id = req.params.id
 
 

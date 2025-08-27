@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema
 
 const Order = {
-    cart: {
+    cart: { 
         type: Schema.Types.ObjectId,
         ref: "Cart"
     },
