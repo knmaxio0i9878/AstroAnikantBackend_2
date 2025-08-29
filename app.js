@@ -5,10 +5,9 @@ require("dotenv").config();  // load env variables
 
 const app = express();
 app.use(express.json());
-const cors = require("cors");
 
 app.use(cors({
-  origin: "https://astroanekant-2025.web.app/",  // your Firebase hosted frontend URL
+  origin: ["https://astroanekant-2025.web.app/","http://localhost:5173"],  // your Firebase hosted frontend URL
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));

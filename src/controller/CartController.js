@@ -1,41 +1,57 @@
 const cartSchema = require("../models/Cart")
-
 const createCart = async(req,res)=>{
     try {
-        // Check if product already exists in user's cart
-        const existingCartItem = await cartSchema.findOne({
-            user: req.body.user,
-            product: req.body.product
+        const { user, product, quantity = 1 } = req.body;
+
+        // Find existing cart for user
+        let existingCart = await cartSchema.findOne({ 
+            user: user, 
+            status: { $nin: ["ordered", "Ordered", "ORDERED"] } 
         });
 
-        if (existingCartItem) {
-            return res.status(409).json({
-                message: "Product already exists in cart"
+        if (existingCart) {
+            // Check if product already exists in cart items
+            const existingItemIndex = existingCart.items.findIndex(
+                item => item.product.toString() === product
+            );
+
+            if (existingItemIndex > -1) {
+                // Update quantity of existing product
+                existingCart.items[existingItemIndex].quantity += quantity;
+            } else {
+                // Add new product to cart
+                existingCart.items.push({ product, quantity });
+            }
+
+            existingCart.order_dt = new Date();
+            const updatedCart = await existingCart.save();
+            await updatedCart.populate('items.product');
+
+            return res.status(200).json({
+                data: updatedCart,
+                message: "Cart updated successfully"
             });
         }
 
-        const cart = {
-            user: req.body.user,
-            product: req.body.product,
-            order_dt: req.body.order_dt,
-            status: req.body.status
-        }
-        
-        const response = await cartSchema.create(cart)
-        if(response){
-            res.status(200).json({
-                data: response, // Return the created response instead of cart
-                message: "Created Cart"
-            })
-        }
-        else{
-            res.status(404).json({
-               message: "Failed Cart"
-            })
-        }
+        // Create new cart if doesn't exist
+        const newCart = new cartSchema({
+            user: user,
+            items: [{ product, quantity }],
+            order_dt: new Date(),
+            status: 'active'
+        });
+
+        const savedCart = await newCart.save();
+        await savedCart.populate('items.product');
+
+        res.status(200).json({
+            data: savedCart,
+            message: "Cart created successfully"
+        });
+
     } catch (error) {
         res.status(500).json({
-            message: "Error creating cart",
+            message: "Error managing cart",
             error: error.message
         });
     }
@@ -143,14 +159,12 @@ const updateCartQuantity = async (req, res) => {
 const getCartByUser = async (req, res) => {
     try {
         const userId = req.params.userId;
-        const cart = await cartSchema.find({ 
+        const cart = await cartSchema.findOne({ 
             user: userId,
-            status: { 
-                $nin: ["ordered", "Ordered", "ORDERED"] // Exclude all variations of ordered status
-            }
-        }).populate("user").populate("product");
+            status: { $nin: ["ordered", "Ordered", "ORDERED"] }
+        }).populate("user").populate("items.product");
         
-        if (cart && cart.length > 0) {
+        if (cart) {
             res.status(200).json({
                 data: cart,
                 message: "User cart fetched successfully"
