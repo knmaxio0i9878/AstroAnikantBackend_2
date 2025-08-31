@@ -3,31 +3,30 @@ const mailUtil = require("../service/MailUtil")
 
 
 const createVisit = async (req, res) => {
-    const visit = {
-        name: req.body.name,
-        phone: req.body.phone,
-        email: req.body.email,
-        visit_date:req.body.visit_date,
-        time:req.body.time,
-        address: req.body.address
-    }
-
+const visit = {
+    name: req.body.name,
+    phone: req.body.phone,
+    email: req.body.email,
+    birthdate: req.body.birthdate,
+    visit_date: req.body.visit_date,
+    time: req.body.time,
+    message: req.body.message
+}
             const emailBody = `
-      <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f9f9f9;">
-        <h2 style="color: #2E4057;">Welcome to Astro!</h2>
-        <p style="color: #333; font-size: 16px;">
-          Hello,<strong>${visit.name}</strong>, <br />
-          Your Visit has been successfully scheduled on ${visit.visit_date} with Astro at ${visit.time}. 🎉
-        </p>
+  <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f9f9f9;">
+    <h2 style="color: #2E4057;">Welcome to Astro!</h2>
+    <p style="color: #333; font-size: 16px;">
+      Hello,<strong>${visit.name}</strong>, <br />
+      Your Visit has been successfully scheduled on ${visit.visit_date} with Astro at ${visit.time}. 🎉
+    </p>
 
-        <br/><br/>
-        
-        <p> Appointment Place : ${visit.address.societyName},${visit.address.street}</p>
-
-        <p style="color: #555; font-size: 15px; margin-top: 15px;">
-          Thanks for chosing Astro.
-        </p>
+    <br/><br/>
     
+    <p><strong>Consultation Purpose:</strong> ${visit.message}</p>
+
+    <p style="color: #555; font-size: 15px; margin-top: 15px;">
+      Thanks for choosing Astro.
+    </p>
     
         <p style="color: #555; font-size: 14px;">
           If you have any questions, feel free to contact us.

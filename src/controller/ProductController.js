@@ -1,7 +1,12 @@
 const productSchema = require("../models/ProductModel");
+const Category = require("../models/Category");
+const ProductModel = require("../models/ProductModel");
 
 const createProduct = async (req, res) => {
     try {
+        // Handle both JSON and form-data
+        const data = req.body || {};
+        
         const {
             name,
             description,
@@ -22,34 +27,42 @@ const createProduct = async (req, res) => {
             seoTitle,
             seoDescription,
             tags
-        } = req.body;
-
+        } = data;
 
         if (!name || !price || !sku) {
             return res.status(400).json({ message: "Name, price, and SKU are required." });
         }
+
+        // Parse arrays from comma-separated strings (for form-data)
+        const parsedBenefits = typeof astrologicalBenefits === 'string' 
+            ? astrologicalBenefits.split(',').map(item => item.trim())
+            : astrologicalBenefits;
+            
+        const parsedTags = typeof tags === 'string'
+            ? tags.split(',').map(item => item.trim())
+            : tags;
+
         const productAdd = await productSchema.create({
             name,
             description,
             shortDescription,
-            price,
-            discountedPrice,
-            stock,
+            price: Number(price),
+            discountedPrice: discountedPrice ? Number(discountedPrice) : undefined,
+            stock: Number(stock),
             sku,
             category,
             stoneType,
-            astrologicalBenefits,
+            astrologicalBenefits: parsedBenefits,
             usage,
             certification,
-            weight,
+            weight: weight ? Number(weight) : undefined,
             dimensions,
-            isActive,
-            isFeatured,
+            isActive: isActive === 'true' || isActive === true,
+            isFeatured: isFeatured === 'true' || isFeatured === true,
             seoTitle,
             seoDescription,
-            tags
+            tags: parsedTags
         });
-
 
         res.status(201).json({
             message: "Product created successfully",
@@ -64,26 +77,53 @@ const createProduct = async (req, res) => {
         });
     }
 };
-
-
 // get all product
+
 const getAllProduct = async (req, res) => {
+    try {
+        const { category } = req.query;
+        
+        let filter = {};
 
-    const product = await productSchema.find()
-    // const product = await productSchema.find().populate("category")----not working ples chek 
-
-    if (product) {
-        res.status(201).json({
-            data: product,
-            message: "Successfully got all the Product"
-        })
-    }
-    else {
-        res.status(404).json({
-            message: "No Product found"
-        })
+        if (category) {
+    // Find category document by name
+    const categoryDoc = await Category.findOne({ name: category });
+    if (categoryDoc) {
+        filter.category = categoryDoc._id;
+    } else {
+        return res.status(404).json({
+            data: [],
+            message: `No category found with name: ${category}`
+        });
     }
 }
+
+        // Populate category name when fetching
+        const products = await ProductModel.find(filter).populate("category", "name");
+
+        if (products.length > 0) {
+            res.status(200).json({
+                data: products,
+                message: category 
+                    ? `Successfully got products for category: ${category}`
+                    : "Successfully got all products"
+            });
+        } else {
+            res.status(404).json({
+                data: [],
+                message: category 
+                    ? `No products found for category: ${category}`
+                    : "No products found"
+            });
+        }
+    } catch (error) {
+        console.error("Error fetching products:", error);
+        res.status(500).json({
+            message: "Server error while fetching products",
+            error: error.message
+        });
+    }
+};
 
 // delete product
 const deleteProduct = async (req, res) => {

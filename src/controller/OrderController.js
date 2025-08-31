@@ -19,7 +19,7 @@ const createOrder = async (req, res) => {
                 path: 'cart',
                 populate: [
                     { path: 'user' },
-                    { path: 'product' }
+                    { path: 'items.product' }
                 ]
             });
 
@@ -76,7 +76,10 @@ const getAllOrder = async (req, res) => {
             path: "cart",
             populate: [
                 { path: "user" },
-                { path: "product" }
+                { 
+                    path: "items.product",
+                    select: "name price images description slug category stock discountedPrice"
+                }
             ]
         });
 
@@ -102,7 +105,7 @@ const getSingleOrder = async (req, res) => {
             path: "cart",
             populate: [
                 { path: "user" },
-                { path: "product" }
+                { path: "items.product" }
             ]
         });
 
@@ -238,10 +241,61 @@ const deleteOrder = async (req, res) => {
 //     }
 
 // }
+const getUserOrders = async (req, res) => {
+    const userId = req.params.userId;
+    console.log('Requested userId:', userId);
+    
+    try {
+        // First, get all orders without population
+        const allOrders = await orderSchema.find();
+        console.log('Total orders in database:', allOrders.length);
+        
+        // Now populate them
+        const populatedOrders = await orderSchema.find()
+            .populate({
+                path: "cart",
+                populate: [
+                    { path: "user" },
+                    { 
+                        path: "items.product",
+                        select: "name price images description shortDescription"
+                    }
+                ]
+            });
 
+        console.log('Populated orders:', populatedOrders.length);
+        
+        // Check the structure
+        if (populatedOrders.length > 0) {
+            console.log('Sample order structure:', JSON.stringify(populatedOrders[0], null, 2));
+        }
+
+        // Filter for user
+        const filteredOrders = populatedOrders.filter(order => {
+            const orderUserId = order?.cart?.user?._id?.toString();
+            console.log('Order user ID:', orderUserId, 'Requested user ID:', userId);
+            return orderUserId === userId;
+        });
+
+        console.log('Filtered orders for user:', filteredOrders.length);
+
+        res.status(200).json({
+            data: filteredOrders,
+            message: "User orders retrieved successfully"
+        });
+    } catch (err) {
+        console.error('Error in getUserOrders:', err);
+        res.status(500).json({
+            message: "Server Error",
+            error: err.message,
+        });
+    }
+};
+// Add this to your module.exports
 module.exports = {
     createOrder,
     getAllOrder,
     getSingleOrder,
-    deleteOrder
-}
+    deleteOrder,
+    getUserOrders  // Add this line
+};
