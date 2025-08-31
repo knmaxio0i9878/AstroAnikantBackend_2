@@ -71,3 +71,18 @@ exports.deleteCategory = async (req, res) => {
     res.status(500).json({ message: "Error deleting category", error: error.message });
   }
 };
+
+exports.getSingleCategory = async (req, res) => {
+    const id = req.params.id
+    const response = await categorySchema.findById(id)
+    if (response) {
+        res.status(200).json({
+            data: response,
+            message: "Single Category get successully"
+        })
+    }else{
+        res.status(404).json({
+            message: "Error in getting single category"
+        })
+    }
+}
