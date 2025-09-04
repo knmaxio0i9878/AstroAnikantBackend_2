@@ -6,5 +6,6 @@ router.get("/getallproducts",productController.getAllProduct)
 router.delete("/deleteproduct/:id",productController.deleteProduct)
 router.put("/updateproduct/:id",productController.updateProduct)
     router.get("/getsingleproduct/:id",productController.getSingleProduct)
+router.get("/bestsellers", productController.getBestSellers); // New route for best sellers
 
 module.exports = router

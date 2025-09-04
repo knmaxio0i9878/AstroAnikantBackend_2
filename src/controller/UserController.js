@@ -40,7 +40,7 @@ const UserAdd = async (req, res) => {
 
   <p style="color: #555; font-size: 14px; margin-top: 20px;">
     If you have any questions, feel free to reach us anytime. <br />
-    📧 <strong>support@astroanekant.com</strong>  
+    📧 <strong>astroanekant@gmail.com</strong>  
     <br />🌐 <a href="https://astroanekant.com" style="color: #2E4057; text-decoration: none;">Visit our website</a>
   </p>
 
