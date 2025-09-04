@@ -7,7 +7,7 @@ const app = express();
 app.use(express.json());
 
 app.use(cors({
-  origin: ["https://astroanekant-2025.web.app/","http://localhost:5173"],  // your Firebase hosted frontend URL
+  origin: ["https://astroanekant-2025.web.app","http://localhost:5173"],  // your Firebase hosted frontend URL
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
@@ -36,7 +36,7 @@ const orderRoutes = require("./src/router/OrderRoutes")
 const paymentRoutes = require("./src/router/PaymentRoutes")
 const adminRoutes = require("./src/router/AdminRoutes")
 const visitRoutes = require("./src/router/VisitRoutes")
-const categoryRoutes = require("./src/router/CartRoutes")
+const categoryRoutes = require("./src/router/CategoryRoutes")
 
 app.use("/user", userRoutes)
 app.use("/product", productRoutes)
@@ -45,4 +45,4 @@ app.use("/order", orderRoutes)
 app.use("/payment", paymentRoutes)
 app.use("/admin", adminRoutes)
 app.use("/visit", visitRoutes)
-app.use("/category",cartRoutes)
+app.use("/category", categoryRoutes)

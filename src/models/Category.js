@@ -1,12 +1,9 @@
-const mongoose = require("mongoose")
-const schema = mongoose.Schema
+const mongoose = require('mongoose');
 
-const CategorySchema = {
-    name:{
-        type:String,
-        // required:true
-    },
+// Update your Cart model/schema
+const categorySchema = new mongoose.Schema({
     
-}
+    name: { type: String, required: true, unique: true },
+});
 
-module.exports = mongoose.model("Category",CategorySchema)
+module.exports = mongoose.model('Category', categorySchema);
