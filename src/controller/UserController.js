@@ -28,7 +28,7 @@ const UserAdd = async (req, res) => {
   <h2 style="color: #2E4057; margin-bottom: 15px;">🙏 Welcome to Astro Anekant!</h2>
 
   <p style="color: #333; font-size: 16px; line-height: 1.6;">
-    Dear <strong>${user.name}ji</strong>, <br />
+    Dear <strong>${user.name} ji</strong>, <br />
     Thank you for joining <strong>Astro Anekant</strong>. 🌟 <br />
     We’re truly grateful to have you in our spiritual community.
   </p>
