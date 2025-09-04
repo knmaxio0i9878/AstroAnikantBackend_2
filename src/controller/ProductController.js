@@ -201,12 +201,36 @@ const getSingleProduct = async (req, res) => {
   }
 };
 
+const getBestSellers = async (req, res) => {
+    try {
+        const bestSellers = await ProductModel.find({ 
+            isFeatured: true, 
+            isActive: true 
+        })
+        .populate("category", "name")
+        .sort({ salesCount: -1 })
+        .limit(8);
+
+        res.status(200).json({
+            data: bestSellers,
+            message: "Best sellers fetched successfully"
+        });
+    } catch (error) {
+        console.error("Error fetching best sellers:", error);
+        res.status(500).json({
+            message: "Server error while fetching best sellers",
+            error: error.message
+        });
+    }
+};
+
 module.exports = { 
     createProduct,
     getAllProduct,
     deleteProduct,
     getSingleProduct,
-    updateProduct
+    updateProduct,
+    getBestSellers
 
 
 };
