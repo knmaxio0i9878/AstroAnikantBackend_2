@@ -33,6 +33,29 @@ const createProduct = async (req, res) => {
             return res.status(400).json({ message: "Name, price, and SKU are required." });
         }
 
+        // Generate slug from name
+        const generateSlug = (text) => {
+            return text
+                .toLowerCase()
+                .trim()
+                .replace(/[^\w\s-]/g, '') // Remove special characters
+                .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
+                .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+        };
+
+        let slug = generateSlug(name);
+        
+        // Check if slug already exists and make it unique if necessary
+        let slugExists = await productSchema.findOne({ slug });
+        let counter = 1;
+        const originalSlug = slug;
+        
+        while (slugExists) {
+            slug = `${originalSlug}-${counter}`;
+            slugExists = await productSchema.findOne({ slug });
+            counter++;
+        }
+
         // Parse arrays from comma-separated strings (for form-data)
         const parsedBenefits = typeof astrologicalBenefits === 'string' 
             ? astrologicalBenefits.split(',').map(item => item.trim())
@@ -44,6 +67,7 @@ const createProduct = async (req, res) => {
 
         const productAdd = await productSchema.create({
             name,
+            slug, // Add the generated slug
             description,
             shortDescription,
             price: Number(price),
@@ -76,8 +100,7 @@ const createProduct = async (req, res) => {
             error: error.message
         });
     }
-};
-// get all product
+};// get all product
 
 const getAllProduct = async (req, res) => {
     try {

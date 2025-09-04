@@ -1,9 +1,10 @@
-const cartSchema = require("../models/Cart")
-const createCart = async(req,res)=>{
+const cartSchema = require("../models/Cart");
+
+const createCart = async (req, res) => {
     try {
         const { user, product, quantity = 1 } = req.body;
 
-        // Find existing cart for user
+        // Find existing cart for user (only active carts)
         let existingCart = await cartSchema.findOne({ 
             user: user, 
             status: { $nin: ["ordered", "Ordered", "ORDERED"] } 
@@ -50,16 +51,53 @@ const createCart = async(req,res)=>{
         });
 
     } catch (error) {
+        // Handle duplicate key error specifically
+        if (error.code === 11000 && error.keyPattern?.user) {
+            // If duplicate key error on user, try to find and update existing cart
+            try {
+                let existingCart = await cartSchema.findOne({ 
+                    user: req.body.user, 
+                    status: { $nin: ["ordered", "Ordered", "ORDERED"] } 
+                });
+
+                if (existingCart) {
+                    const existingItemIndex = existingCart.items.findIndex(
+                        item => item.product.toString() === req.body.product
+                    );
+
+                    if (existingItemIndex > -1) {
+                        existingCart.items[existingItemIndex].quantity += req.body.quantity || 1;
+                    } else {
+                        existingCart.items.push({ 
+                            product: req.body.product, 
+                            quantity: req.body.quantity || 1 
+                        });
+                    }
+
+                    existingCart.order_dt = new Date();
+                    const updatedCart = await existingCart.save();
+                    await updatedCart.populate('items.product');
+
+                    return res.status(200).json({
+                        data: updatedCart,
+                        message: "Cart updated successfully"
+                    });
+                }
+            } catch (retryError) {
+                console.error("Retry error:", retryError);
+            }
+        }
+
         res.status(500).json({
             message: "Error managing cart",
             error: error.message
         });
     }
-}
+};
 
-const getAllCart = async(req,res) => {
+const getAllCart = async (req, res) => {
     try {
-        const cart = await cartSchema.find().populate("user").populate("product");
+        const cart = await cartSchema.find().populate("user").populate("items.product");
         res.status(200).json({
             data: cart,
             message: "Successfully got all the cart"
@@ -71,14 +109,14 @@ const getAllCart = async(req,res) => {
             error: err.message,
         });
     }
-}
+};
 
 const getSingleCart = async (req, res) => {
     try {
         const id = req.params.id;
 
         const cart = await cartSchema.findById(id)
-            .populate('product')
+            .populate('items.product')
             .populate('user');
 
         if (cart) {
@@ -122,40 +160,96 @@ const deleteCart = async (req, res) => {
             error: err.message,
         });
     }
-}
+};
 
-const updateCartQuantity = async (req, res) => {
+// Remove individual item from cart
+const removeCartItem = async (req, res) => {
     try {
-        const id = req.params.id;
-        const { quantity } = req.body;
+        const { cartId, productId } = req.params;
         
-        const updatedCart = await cartSchema.findByIdAndUpdate(
-            id, 
-            { quantity: quantity },
-            { new: true, runValidators: true }
-        ).populate("user").populate("product");
+        const cart = await cartSchema.findById(cartId);
         
-        if (updatedCart) {
-            res.status(200).json({
-                data: updatedCart,
-                message: "Cart quantity updated successfully"
-            });
-        } else {
-            res.status(404).json({
+        if (!cart) {
+            return res.status(404).json({
                 message: "Cart not found"
             });
         }
+
+        // Remove the item from cart
+        cart.items = cart.items.filter(item => item.product.toString() !== productId);
+        
+        // If no items left, you might want to delete the cart or set status to 'empty'
+        if (cart.items.length === 0) {
+            cart.status = 'empty';
+        }
+        
+        cart.order_dt = new Date();
+        const updatedCart = await cart.save();
+        await updatedCart.populate('items.product');
+
+        res.status(200).json({
+            data: updatedCart,
+            message: "Item removed from cart successfully"
+        });
+        
     } catch (error) {
         console.error(error);
         res.status(500).json({
-            message: "Error updating cart quantity",
+            message: "Error removing item from cart",
             error: error.message
         });
     }
-}
+};
 
-// Update the existing getCartByUser function to filter out ordered items
-// Update the existing getCartByUser function to filter out ordered items
+// Update quantity of specific item in cart
+const updateCartItemQuantity = async (req, res) => {
+    try {
+        const { cartId, productId } = req.params;
+        const { quantity } = req.body;
+        
+        if (quantity < 1) {
+            return res.status(400).json({
+                message: "Quantity must be at least 1"
+            });
+        }
+
+        const cart = await cartSchema.findById(cartId);
+        
+        if (!cart) {
+            return res.status(404).json({
+                message: "Cart not found"
+            });
+        }
+
+        // Find and update the specific item
+        const itemIndex = cart.items.findIndex(item => item.product.toString() === productId);
+        
+        if (itemIndex === -1) {
+            return res.status(404).json({
+                message: "Product not found in cart"
+            });
+        }
+
+        cart.items[itemIndex].quantity = quantity;
+        cart.order_dt = new Date();
+        
+        const updatedCart = await cart.save();
+        await updatedCart.populate('items.product');
+
+        res.status(200).json({
+            data: updatedCart,
+            message: "Cart item quantity updated successfully"
+        });
+        
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            message: "Error updating cart item quantity",
+            error: error.message
+        });
+    }
+};
+
 const getCartByUser = async (req, res) => {
     try {
         const userId = req.params.userId;
@@ -181,8 +275,9 @@ const getCartByUser = async (req, res) => {
             error: error.message
         });
     }
-}
-// Update cart item (useful for changing quantity, status, etc.)
+};
+
+// Update entire cart
 const updateCart = async (req, res) => {
     try {
         const id = req.params.id;
@@ -192,7 +287,7 @@ const updateCart = async (req, res) => {
             id, 
             updateData, 
             { new: true, runValidators: true }
-        ).populate("user").populate("product");
+        ).populate("user").populate("items.product");
         
         if (updatedCart) {
             res.status(200).json({
@@ -211,21 +306,27 @@ const updateCart = async (req, res) => {
             error: error.message
         });
     }
-}
+};
 
-// Get active cart items by user (only items with status "In Cart")
+// Get active cart items by user (modified to work with single cart approach)
 const getActiveCartByUser = async (req, res) => {
     try {
         const userId = req.params.userId;
-        const cart = await cartSchema.find({ 
+        const cart = await cartSchema.findOne({ 
             user: userId, 
-            status: "In Cart" 
-        }).populate("user").populate("product");
+            status: { $nin: ["ordered", "Ordered", "ORDERED", "Cleared"] }
+        }).populate("user").populate("items.product");
         
-        res.status(200).json({
-            data: cart,
-            message: "Active cart items fetched successfully"
-        });
+        if (cart) {
+            res.status(200).json({
+                data: cart,
+                message: "Active cart fetched successfully"
+            });
+        } else {
+            res.status(404).json({
+                message: "No active cart found for this user"
+            });
+        }
     } catch (error) {
         console.error(error);
         res.status(500).json({
@@ -233,22 +334,33 @@ const getActiveCartByUser = async (req, res) => {
             error: error.message
         });
     }
-}
+};
 
-// Clear all cart items for a user (set status to "Cleared" instead of deleting)
+// Clear all cart items for a user
 const clearUserCart = async (req, res) => {
     try {
         const userId = req.params.userId;
         
-        const result = await cartSchema.updateMany(
-            { user: userId, status: "In Cart" },
-            { status: "Cleared" }
-        );
-        
-        res.status(200).json({
-            data: result,
-            message: "User cart cleared successfully"
+        const cart = await cartSchema.findOne({ 
+            user: userId, 
+            status: { $nin: ["ordered", "Ordered", "ORDERED"] }
         });
+
+        if (cart) {
+            cart.items = [];
+            cart.status = "empty";
+            cart.order_dt = new Date();
+            await cart.save();
+
+            res.status(200).json({
+                data: cart,
+                message: "User cart cleared successfully"
+            });
+        } else {
+            res.status(404).json({
+                message: "No cart found for this user"
+            });
+        }
     } catch (error) {
         console.error(error);
         res.status(500).json({
@@ -256,18 +368,40 @@ const clearUserCart = async (req, res) => {
             error: error.message
         });
     }
-}
+};
 
+// Legacy function - kept for backward compatibility but deprecated
+const updateCartQuantity = async (req, res) => {
+    try {
+        const id = req.params.id;
+        const { quantity } = req.body;
+        
+        // This function is problematic with the new cart structure
+        // Recommend using updateCartItemQuantity instead
+        res.status(400).json({
+            message: "This endpoint is deprecated. Please use /cart/:cartId/item/:productId/quantity instead",
+            recommendedEndpoint: `/cart/${id}/item/[productId]/quantity`
+        });
+        
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            message: "Error updating cart quantity",
+            error: error.message
+        });
+    }
+};
 
-
-module.exports ={
+module.exports = {
     createCart,
     getAllCart,
     getSingleCart,
     deleteCart,
-    getCartByUser,  // Add this export
+    getCartByUser,
     updateCart,
     getActiveCartByUser,    
     clearUserCart,
-    updateCartQuantity
-}
+    updateCartQuantity, // Keep for backward compatibility
+    removeCartItem,     // New function
+    updateCartItemQuantity // New function
+};

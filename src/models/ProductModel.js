@@ -135,5 +135,35 @@ const productSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Pre-save middleware to generate slug
+productSchema.pre('save', async function(next) {
+  if (!this.slug && this.isModified('name')) {
+    // Generate slug from name
+    const generateSlug = (text) => {
+      return text
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, '') // Remove special characters
+        .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
+        .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+    };
+
+    let slug = generateSlug(this.name);
+    
+    // Check if slug already exists and make it unique if necessary
+    let slugExists = await this.constructor.findOne({ slug, _id: { $ne: this._id } });
+    let counter = 1;
+    const originalSlug = slug;
+    
+    while (slugExists) {
+      slug = `${originalSlug}-${counter}`;
+      slugExists = await this.constructor.findOne({ slug, _id: { $ne: this._id } });
+      counter++;
+    }
+    
+    this.slug = slug;
+  }
+  next();
+});
 
 module.exports = mongoose.model('Product', productSchema);
