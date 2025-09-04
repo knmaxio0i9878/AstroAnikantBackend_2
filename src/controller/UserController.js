@@ -27,7 +27,7 @@ const UserAdd = async (req, res) => {
   <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f9f9f9;">
     <h2 style="color: #2E4057;">Welcome to Astro!</h2>
     <p style="color: #333; font-size: 16px;">
-      Hello,<strong>${user.name}</strong>, <br />
+      Hello,<strong>${user.name}ji</strong>, <br />
       Your account has been successfully created with Astro. 🎉
     </p>
     
