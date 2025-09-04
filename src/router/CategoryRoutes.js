@@ -14,4 +14,6 @@ router.put('/:id', categoryController.updateCategory);
 // Delete category
 router.delete('/:id', categoryController.deleteCategory);
 
+router.get("/getsinglecategory/:id",categoryController.getSingleCategory)
+
 module.exports = router;

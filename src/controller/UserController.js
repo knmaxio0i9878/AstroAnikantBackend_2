@@ -24,31 +24,32 @@ const UserAdd = async (req, res) => {
 
         const response = await userSchema.create(user);
         const emailBody = `
-  <div style="font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f9f9f9;">
-    <h2 style="color: #2E4057;">Welcome to Astro!</h2>
-    <p style="color: #333; font-size: 16px;">
-      Hello,<strong>${user.name}ji</strong>, <br />
-      Your account has been successfully created with Astro. 🎉
-    </p>
-    
-    <p style="color: #555; font-size: 15px; margin-top: 15px;">
-      You can now explore amazing astro items and manage your life with ease.
-    </p>
+  <div style="font-family: Arial, sans-serif; text-align: center; padding: 25px; background: #f9f9f9;">
+  <h2 style="color: #2E4057; margin-bottom: 15px;">🙏 Welcome to Astro Anekant!</h2>
 
+  <p style="color: #333; font-size: 16px; line-height: 1.6;">
+    Dear <strong>${user.name} ji</strong>, <br />
+    Thank you for joining <strong>Astro Anekant</strong>. 🌟 <br />
+    We’re truly grateful to have you in our spiritual community.
+  </p>
 
-    <p style="color: #555; font-size: 14px;">
-      If you have any questions, feel free to contact us.
-    </p>
-    <p style="color: #555; font-size: 14px; margin-top: 5px;">
-      📞 Astro Office: <strong>98765 43210</strong>
-    </p>
+  <p style="color: #555; font-size: 15px; margin-top: 15px; line-height: 1.5;">
+    You can now explore powerful astro remedies, products, and guidance 
+    that bring positivity and balance to your life.
+  </p>
 
-    <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
+  <p style="color: #555; font-size: 14px; margin-top: 20px;">
+    If you have any questions, feel free to reach us anytime. <br />
+    📧 <strong>astroanekant@gmail.com</strong>  
+    <br />🌐 <a href="https://astroanekant.com" style="color: #2E4057; text-decoration: none;">Visit our website</a>
+  </p>
 
-    <p style="color: #999; font-size: 12px;">
-      © ${new Date().getFullYear()} Astro. All rights reserved.
-    </p>
-  </div>
+  <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
+
+  <p style="color: #999; font-size: 12px;">
+    © ${new Date().getFullYear()} Astro Anekant. All rights reserved.
+  </p>
+</div>
 `;
 
         await mailUtil.sendingMail(user.email,"Success account created with Astro",emailBody)
