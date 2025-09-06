@@ -224,13 +224,30 @@ const getBestSellers = async (req, res) => {
     }
 };
 
+const quantityUpdate = async(req,res) =>{
+    const id = req.params.id
+    const response = await productSchema.findByIdAndUpdate(id,req.body,{new:true})
+    if(response){
+        res.status(200).json({
+            data:response,
+            message:"Quantity Update"
+        })
+    }
+    else{
+        res.status(400).json({
+            message:"Quantity Not Update"
+        })
+    }
+}
+
 module.exports = { 
     createProduct,
     getAllProduct,
     deleteProduct,
     getSingleProduct,
     updateProduct,
-    getBestSellers
+    getBestSellers,
+    quantityUpdate
 
 
 };

@@ -6,6 +6,11 @@ const productSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  quantity:{
+    type:Number,
+    require:true.valueOf,
+    default:1
+  },
   slug: {
     type: String,
     required: false,
