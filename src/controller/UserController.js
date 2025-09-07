@@ -52,7 +52,7 @@ const UserAdd = async (req, res) => {
 </div>
 `;
 
-        await mailUtil.sendingMail(user.email,"Success account created with Astro",emailBody)
+        await mailUtil.sendingMail(user.email,"Account created with Astro Anekant successfully",emailBody)
 
 
         res.status(201).json({
