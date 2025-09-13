@@ -96,8 +96,6 @@ const deleteUser = async (req, res) => {
         })
     }
 }
-
-
 // update user
 const updateUser = async (req, res) => {
     try {
@@ -181,6 +179,74 @@ const validateUser = async (req, res) => {
         res.status(404).json({ message: "User not found" });
     }
 };
+const getForgotUserByEmail = async (req, res) => {
+    const { email } = req.body;
+    const user = await userSchema.findOne({ email: email });
+    if (user) {
+        const token = tokenUtil.generateToken(user.toObject());
+        const emailBody = `Click Here for Password Reset : <a href="http://localhost:1921/forgotusertoken/${token}"> Reset </a>`;
+        await mailUtil.sendingMail(user.email, "Verification of Password", emailBody)
+        res.status(201).json({
+            data: user,
+            message: "User Found"
+        })
+    } else {
+        res.status(404).json({
+            message: "User Not found"
+        }) 
+    }
+}
+const updateForgotUserEmail = async (req, res) => {
+    const token = req.params.token; 
+    console.log("Received Token:", token);
+    try {
+        let decoded;
+        decoded = jwt.verify(token,"parth1923")
+        console.log("decoded",decoded);
+        
+
+        const userId = decoded._id; // Extract user ID from token
+        console.log("Decoded User ID:", userId);
+
+        console.log("New Password:", req.body.password);
+
+        if (!req.body.password) {
+            return res.status(400).json({ message: "Password is required" });
+        }
+
+        // Encrypt the new password
+        let hashedPassword;
+        try {
+            hashedPassword = await encrypt.hashedPassword(req.body.password);
+        } catch (hashError) {
+            console.error("Password Hashing Error:", hashError.message);
+            return res.status(500).json({ message: "Error hashing password" });
+        }
+
+        // Find and update the user
+        const updatedUser = await userSchema.findByIdAndUpdate(
+            userId, 
+            { password: hashedPassword }, 
+            { new: true }
+        );
+
+        if (!updatedUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        return res.status(200).json({
+            data: updatedUser,
+            message: "Password updated successfully",
+        });
+
+    } catch (error) {
+        console.error("Error updating password:", error.message);
+        return res.status(500).json({
+            message: "An error occurred while updating the password",
+            error: error.message,
+        });
+    }
+};
 
 module.exports = {
     UserAdd,
@@ -188,5 +254,7 @@ module.exports = {
     deleteUser,
     updateUser,
     getSingleUser,
-    validateUser
+    validateUser,
+    getForgotUserByEmail,
+    updateForgotUserEmail
 }

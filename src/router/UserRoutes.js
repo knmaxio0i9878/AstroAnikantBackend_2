@@ -8,5 +8,9 @@ router.delete("/deleteuser/:id",userController.deleteUser)
 router.put("/updateuser/:id",userController.updateUser)
 router.post("/loginuser",userController.validateUser)
 router.get("/getsingleuser/:id",userController.getSingleUser)
+router.post("/getuserbyemail",userController.getForgotUserByEmail)
+router.put("/updateforgotuserpassword/:token",userController.updateForgotUserEmail)
+
+
 
 module.exports = router
