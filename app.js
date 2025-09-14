@@ -38,6 +38,7 @@ const adminRoutes = require("./src/router/AdminRoutes")
 const visitRoutes = require("./src/router/VisitRoutes")
 const categoryRoutes = require("./src/router/CategoryRoutes")
 const productRequestRoutes = require("./src/router/ProductRequestRoutes")
+const wishlistRoutes = require("./src/router/WishlistRoutes")
 
 
 app.use("/user", userRoutes)
@@ -49,4 +50,6 @@ app.use("/admin", adminRoutes)
 app.use("/visit", visitRoutes)
 app.use("/category", categoryRoutes)
 app.use("/productrequest", productRequestRoutes)
+app.use("/wishlist", wishlistRoutes)
+
 
