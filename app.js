@@ -39,6 +39,7 @@ const visitRoutes = require("./src/router/VisitRoutes")
 const categoryRoutes = require("./src/router/CategoryRoutes")
 const productRequestRoutes = require("./src/router/ProductRequestRoutes")
 const wishlistRoutes = require("./src/router/WishlistRoutes")
+const donationRoutes = require("./src/router/DonationRoutes")
 
 
 app.use("/user", userRoutes)
@@ -51,5 +52,7 @@ app.use("/visit", visitRoutes)
 app.use("/category", categoryRoutes)
 app.use("/productrequest", productRequestRoutes)
 app.use("/wishlist", wishlistRoutes)
+app.use("/donation", donationRoutes)
+
 
 
