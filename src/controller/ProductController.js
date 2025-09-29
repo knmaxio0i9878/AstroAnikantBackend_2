@@ -186,7 +186,7 @@ const updateProduct = async (req, res) => {
 const getSingleProduct = async (req, res) => {
   try {
     const id = req.params.id;
-    const product = await productSchema.findById(id);
+    const product = await productSchema.findById(id).populate("category", "name");
 
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
@@ -200,7 +200,6 @@ const getSingleProduct = async (req, res) => {
     res.status(500).json({ message: "Error fetching product", error: error.message });
   }
 };
-
 const getBestSellers = async (req, res) => {
     try {
         const bestSellers = await ProductModel.find({ 
@@ -240,6 +239,57 @@ const quantityUpdate = async(req,res) =>{
     }
 }
 
+const getRelatedProductsByProductId = async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const { limit = 4 } = req.query;
+
+        // First get the current product to find its category
+        const currentProduct = await ProductModel.findById(productId).populate("category");
+        
+        if (!currentProduct) {
+            return res.status(404).json({ message: "Product not found" });
+        }
+
+        const categoryId = currentProduct.category._id;
+
+        // Find related products from same category (excluding current product)
+        let relatedProducts = await ProductModel.find({
+            category: categoryId,
+            _id: { $ne: productId },
+            isActive: true
+        })
+        .populate("category", "name")
+        .limit(parseInt(limit))
+        .sort({ createdAt: -1 });
+
+        // If not enough products in same category, get from all categories
+        if (relatedProducts.length < parseInt(limit)) {
+            const remainingCount = parseInt(limit) - relatedProducts.length;
+            const additionalProducts = await ProductModel.find({
+                isActive: true,
+                category: { $ne: categoryId },
+                _id: { $ne: productId }
+            })
+            .populate("category", "name")
+            .limit(remainingCount)
+            .sort({ createdAt: -1 });
+
+            relatedProducts = [...relatedProducts, ...additionalProducts];
+        }
+
+        res.status(200).json({
+            data: relatedProducts,
+            message: "Related products fetched successfully"
+        });
+    } catch (error) {
+        console.error("Error fetching related products:", error);
+        res.status(500).json({
+            message: "Server error while fetching related products",
+            error: error.message
+        });
+    }
+};
 module.exports = { 
     createProduct,
     getAllProduct,
@@ -247,7 +297,6 @@ module.exports = {
     getSingleProduct,
     updateProduct,
     getBestSellers,
-    quantityUpdate
-
-
+    quantityUpdate,
+    getRelatedProductsByProductId
 };

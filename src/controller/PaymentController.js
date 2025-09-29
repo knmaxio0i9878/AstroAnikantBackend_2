@@ -2,15 +2,15 @@
 const Razorpay = require("razorpay");
 
 const razorpay = new Razorpay({
-    key_id: "rzp_test_m60EaJoASbqtGR",
-    key_secret: "pzIHmVc5tDa76mTSU552aa3d",
+    key_id: "rzp_test_RNOxHvjfvDoP1q",
+    key_secret: "YbMcdnd8JQTx1on5eUUNqoA7",
   });
   // API to create an order
   const creatOrder =  async (req, res) => {
     const { amount, currency, receipt } = req.body;
     
     const options = {
-      amount: amount * 100, // Razorpay expects the amount in paise
+      amount: amount , // Razorpay expects the amount in paise
       currency: currency,
       receipt: receipt,
     };
@@ -27,7 +27,7 @@ const razorpay = new Razorpay({
   const verifyOrder = async (req, res) => {
     const crypto = require("crypto");
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-    const secret = "LGNTEkWut2jUcxFppHnluUUB";
+    const secret = "YbMcdnd8JQTx1on5eUUNqoA7";
     const hash = crypto.createHmac("sha256", secret)
       .update(razorpay_order_id + "|" + razorpay_payment_id)
       .digest("hex");

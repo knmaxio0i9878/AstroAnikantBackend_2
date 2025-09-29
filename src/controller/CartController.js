@@ -56,14 +56,19 @@ const createCart = async (req, res) => {
         }
 
         // Create new cart only if no existing cart found
-        const newCart = await cartSchema.create({
-            user: user,
-            items: [{ product, quantity }],
-            order_dt: new Date(),
-            status: 'active'
-        });
+const newCart = await cartSchema.create({
+    user: user,
+    items: [{ product, quantity }],
+    order_dt: new Date(),
+    status: 'active'
+});
 
-        await newCart.populate('items.product');
+await newCart.populate('items.product');
+
+return res.status(200).json({
+    data: newCart,
+    message: "Cart created successfully"
+});
     } catch (error) {
         console.error("Cart creation error:", error);
         res.status(500).json({
