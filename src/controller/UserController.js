@@ -2,6 +2,8 @@ const userSchema = require("../models/UserModel")
 const encrypt = require("../service/Encrypt")
 const tokenUtil = require("../service/Token")
 const mailUtil = require("../service/MailUtil")
+const jwt = require("jsonwebtoken");
+
 
 
 
@@ -52,7 +54,7 @@ const UserAdd = async (req, res) => {
 </div>
 `;
 
-        await mailUtil.sendingMail(user.email,"Account created with Astro Anekant successfully!",emailBody)
+        await mailUtil.sendingMail(user.email, "Account created with Astro Anekant successfully!", emailBody)
 
 
         res.status(201).json({
@@ -132,7 +134,7 @@ const getSingleUser = async (req, res) => {
 
     const id = req.params.id;
     console.log(id);
-    
+
     const user = await userSchema.findById(id)
     if (user) {
         res.status(200).json({
@@ -148,7 +150,7 @@ const getSingleUser = async (req, res) => {
 }
 
 // user validation for login
-const validateUser = async (req, res) => {  
+const validateUser = async (req, res) => {
     const email = req.body.email;
     const password = req.body.password;
 
@@ -180,95 +182,95 @@ const validateUser = async (req, res) => {
     }
 };
 const getForgotUserByEmail = async (req, res) => {
-  try {
-    const { email } = req.body;
+    try {
+        const { email } = req.body;
 
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" });
-    }
+        if (!email) {
+            return res.status(400).json({ message: "Email is required" });
+        }
 
-    const user = await userSchema.findOne({ email: email });
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+        const user = await userSchema.findOne({ email: email });
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
 
-    // Generate JWT token with expiry (1h recommended)
-    const token = jwt.sign(
-      { _id: user._id, email: user.email },
-      "parth1923", // keep in .env for security
-      { expiresIn: "1h" }
-    );
+        // Generate JWT token with expiry (1h recommended)
+        const token = jwt.sign(
+            { _id: user._id, email: user.email },
+            "parth1923", // keep in .env for security
+            { expiresIn: "1h" }
+        );
 
-    // Reset link points to frontend route
-    const resetLink = `https://astroanekant.com/emailresetpassword/${token}`;
+        // Reset link points to frontend route
+        const resetLink = `https://astroanekant.com/emailresetpassword/${token}`;
 
-    const emailBody = `
+        const emailBody = `
       <p>Hello ${user.name || "User"},</p>
       <p>You requested to reset your password. Click the link below:</p>
       <p><a href="${resetLink}">Reset Password</a></p>
       <p>If you did not request this, please ignore this email.</p>
     `;
 
-    await mailUtil.sendingMail(
-      user.email,
-      "Password Reset Request",
-      emailBody
-    );
+        await mailUtil.sendingMail(
+            user.email,
+            "Password Reset Request",
+            emailBody
+        );
 
-    return res.status(200).json({
-      message: "Password reset email sent successfully",
-    });
+        return res.status(200).json({
+            message: "Password reset email sent successfully",
+        });
 
-  } catch (error) {
-    console.error("Forgot Password Error:", error.message);
-    return res.status(500).json({ message: "Server error", error: error.message });
-  }
-};  
+    } catch (error) {
+        console.error("Forgot Password Error:", error.message);
+        return res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
 const updateForgotUserEmail = async (req, res) => {
-  const token = req.params.token;
-  const { password } = req.body;
+    const token = req.params.token;
+    const { password } = req.body;
 
-  if (!password) {
-    return res.status(400).json({ message: "Password is required" });
-  }
-
-  try {
-    // Verify token
-    const decoded = jwt.verify(token, "parth1923");
-    const userId = decoded._id;
-
-    // Hash new password
-    const hashedPassword = await encrypt.hashedPassword(password);
-
-    // Update user
-    const updatedUser = await userSchema.findByIdAndUpdate(
-      userId,
-      { password: hashedPassword },
-      { new: true }
-    );
-
-    if (!updatedUser) {
-      return res.status(404).json({ message: "User not found" });
+    if (!password) {
+        return res.status(400).json({ message: "Password is required" });
     }
 
-    return res.status(200).json({
-      message: "Password updated successfully",
-      data: updatedUser,
-    });
+    try {
+        // Verify token
+        const decoded = jwt.verify(token, "parth1923");
+        const userId = decoded._id;
 
-  } catch (error) {
-    console.error("Update Password Error:", error.message);
+        // Hash new password
+        const hashedPassword = await encrypt.hashedPassword(password);
 
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({ message: "Reset link expired, request again" });
+        // Update user
+        const updatedUser = await userSchema.findByIdAndUpdate(
+            userId,
+            { password: hashedPassword },
+            { new: true }
+        );
+
+        if (!updatedUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        return res.status(200).json({
+            message: "Password updated successfully",
+            data: updatedUser,
+        });
+
+    } catch (error) {
+        console.error("Update Password Error:", error.message);
+
+        if (error.name === "TokenExpiredError") {
+            return res.status(401).json({ message: "Reset link expired, request again" });
+        }
+
+        if (error.name === "JsonWebTokenError") {
+            return res.status(401).json({ message: "Invalid reset link" });
+        }
+
+        return res.status(500).json({ message: "Server error", error: error.message });
     }
-
-    if (error.name === "JsonWebTokenError") {
-      return res.status(401).json({ message: "Invalid reset link" });
-    }
-
-    return res.status(500).json({ message: "Server error", error: error.message });
-  }
 };
 
 module.exports = {
