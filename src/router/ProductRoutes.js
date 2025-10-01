@@ -8,5 +8,6 @@ router.put("/updateproduct/:id",productController.updateProduct)
 router.get("/getsingleproduct/:id",productController.getSingleProduct)
 router.get("/bestsellers", productController.getBestSellers); // New route for best sellers
 router.put("/updatequantity/:id",productController.quantityUpdate)
+router.get("/related-by-product/:productId", productController.getRelatedProductsByProductId);
 
 module.exports = router

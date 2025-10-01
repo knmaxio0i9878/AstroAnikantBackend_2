@@ -11,7 +11,8 @@ router.put("/updatecart/:id", cartController.updateCart)  // Add this route
 router.get("/getactivecart/:userId", cartController.getActiveCartByUser)
 router.put("/clearcart/:userId", cartController.clearUserCart)
 router.put("/updatequantity/:id", cartController.updateCartQuantity)
-
+router.delete("/removeitem/:cartId/:productId", cartController.removeCartItem)
+router.put("/:cartId/item/:productId/quantity", cartController.updateCartItemQuantity)
 
 
 module.exports = router

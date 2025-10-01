@@ -1,31 +1,52 @@
 const cartSchema = require("../models/Cart");
 
+const validateCartInput = (user, product, quantity) => {
+    if (!user || !product) {
+        return { isValid: false, message: "User and product are required" };
+    }
+    if (quantity && (isNaN(quantity) || quantity < 1)) {
+        return { isValid: false, message: "Quantity must be a positive number" };
+    }
+    return { isValid: true };
+};
+
 const createCart = async (req, res) => {
     try {
         const { user, product, quantity = 1 } = req.body;
+        
+        // Add input validation
+        const validation = validateCartInput(user, product, quantity);
+        if (!validation.isValid) {
+            return res.status(400).json({
+                message: validation.message
+            });
+        }        // Use findOneAndUpdate with upsert to handle race conditions
+        const updatedCart = await cartSchema.findOneAndUpdate(
+            { 
+                user: user, 
+                status: { $nin: ["ordered", "Ordered", "ORDERED"] } 
+            },
+            {},
+            { 
+                new: true, 
+                upsert: false 
+            }
+        );
 
-        // Find existing cart for user (only active carts)
-        let existingCart = await cartSchema.findOne({ 
-            user: user, 
-            status: { $nin: ["ordered", "Ordered", "ORDERED"] } 
-        });
-
-        if (existingCart) {
+        if (updatedCart) {
             // Check if product already exists in cart items
-            const existingItemIndex = existingCart.items.findIndex(
+            const existingItemIndex = updatedCart.items.findIndex(
                 item => item.product.toString() === product
             );
 
             if (existingItemIndex > -1) {
-                // Update quantity of existing product
-                existingCart.items[existingItemIndex].quantity += quantity;
+                updatedCart.items[existingItemIndex].quantity += quantity;
             } else {
-                // Add new product to cart
-                existingCart.items.push({ product, quantity });
+                updatedCart.items.push({ product, quantity });
             }
 
-            existingCart.order_dt = new Date();
-            const updatedCart = await existingCart.save();
+            updatedCart.order_dt = new Date();
+            await updatedCart.save();
             await updatedCart.populate('items.product');
 
             return res.status(200).json({
@@ -34,60 +55,22 @@ const createCart = async (req, res) => {
             });
         }
 
-        // Create new cart if doesn't exist
-        const newCart = new cartSchema({
-            user: user,
-            items: [{ product, quantity }],
-            order_dt: new Date(),
-            status: 'active'
-        });
+        // Create new cart only if no existing cart found
+const newCart = await cartSchema.create({
+    user: user,
+    items: [{ product, quantity }],
+    order_dt: new Date(),
+    status: 'active'
+});
 
-        const savedCart = await newCart.save();
-        await savedCart.populate('items.product');
+await newCart.populate('items.product');
 
-        res.status(200).json({
-            data: savedCart,
-            message: "Cart created successfully"
-        });
-
+return res.status(200).json({
+    data: newCart,
+    message: "Cart created successfully"
+});
     } catch (error) {
-        // Handle duplicate key error specifically
-        if (error.code === 11000 && error.keyPattern?.user) {
-            // If duplicate key error on user, try to find and update existing cart
-            try {
-                let existingCart = await cartSchema.findOne({ 
-                    user: req.body.user, 
-                    status: { $nin: ["ordered", "Ordered", "ORDERED"] } 
-                });
-
-                if (existingCart) {
-                    const existingItemIndex = existingCart.items.findIndex(
-                        item => item.product.toString() === req.body.product
-                    );
-
-                    if (existingItemIndex > -1) {
-                        existingCart.items[existingItemIndex].quantity += req.body.quantity || 1;
-                    } else {
-                        existingCart.items.push({ 
-                            product: req.body.product, 
-                            quantity: req.body.quantity || 1 
-                        });
-                    }
-
-                    existingCart.order_dt = new Date();
-                    const updatedCart = await existingCart.save();
-                    await updatedCart.populate('items.product');
-
-                    return res.status(200).json({
-                        data: updatedCart,
-                        message: "Cart updated successfully"
-                    });
-                }
-            } catch (retryError) {
-                console.error("Retry error:", retryError);
-            }
-        }
-
+        console.error("Cart creation error:", error);
         res.status(500).json({
             message: "Error managing cart",
             error: error.message
@@ -180,8 +163,8 @@ const removeCartItem = async (req, res) => {
         
         // If no items left, you might want to delete the cart or set status to 'empty'
         if (cart.items.length === 0) {
-            cart.status = 'empty';
-        }
+    cart.status = 'cleared';
+}
         
         cart.order_dt = new Date();
         const updatedCart = await cart.save();
@@ -348,7 +331,7 @@ const clearUserCart = async (req, res) => {
 
         if (cart) {
             cart.items = [];
-            cart.status = "empty";
+            cart.status = "cleared";
             cart.order_dt = new Date();
             await cart.save();
 

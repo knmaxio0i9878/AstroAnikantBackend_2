@@ -39,7 +39,7 @@ const UserAdd = async (req, res) => {
   </p>
 
   <p style="color: #555; font-size: 14px; margin-top: 20px;">
-    If you have any questions, feel free to reach us anytime. <br />
+    If you have any query, feel free to reach us anytime. <br />
     📧 <strong>astroanekant@gmail.com</strong>  
     <br />🌐 <a href="https://astroanekant.com" style="color: #2E4057; text-decoration: none;">Visit our website</a>
   </p>
@@ -52,7 +52,7 @@ const UserAdd = async (req, res) => {
 </div>
 `;
 
-        await mailUtil.sendingMail(user.email,"Account created with Astro Anekant successfully",emailBody)
+        await mailUtil.sendingMail(user.email,"Account created with Astro Anekant successfully!",emailBody)
 
 
         res.status(201).json({

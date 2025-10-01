@@ -3,7 +3,7 @@ const productRequest = require("../models/ProductRequest")
 const insertProductRequest = async(req,res) =>{
     const request = {
         productName:req.body.name,
-        fullname:req.body.fullname,
+        fullName:req.body.fullName,
         phoneNo:req.body.phoneNo,
         email:req.body.email,
         additionalDetails:req.body.additionalDetails,
