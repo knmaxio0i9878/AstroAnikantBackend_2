@@ -187,6 +187,7 @@ const getForgotUserByEmail = async (req, res) => {
         const emailBody = `Click Here for Password Reset : <a href="https://astroanikantbackend-2.onrender.com/emailresetpassword/${token}"> Reset </a>`;
         await mailUtil.sendingMail(user.email, "Verification of Password", emailBody)
         res.status(201).json({
+            
             data: user,
             message: "User Found"
         })
