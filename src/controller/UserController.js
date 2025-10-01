@@ -184,7 +184,7 @@ const getForgotUserByEmail = async (req, res) => {
     const user = await userSchema.findOne({ email: email });
     if (user) {
         const token = tokenUtil.generateToken(user.toObject());
-        const emailBody = `Click Here for Password Reset : <a href="http://localhost:1921/emailresetpassword/${token}"> Reset </a>`;
+        const emailBody = `Click Here for Password Reset : <a href="https://astroanikantbackend-2.onrender.com/emailresetpassword/${token}"> Reset </a>`;
         await mailUtil.sendingMail(user.email, "Verification of Password", emailBody)
         res.status(201).json({
             data: user,
