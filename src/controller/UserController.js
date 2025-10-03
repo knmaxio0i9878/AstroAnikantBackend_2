@@ -9,66 +9,100 @@ const jwt = require("jsonwebtoken");
 
 // add user
 const UserAdd = async (req, res) => {
-    try {
-        const hashedPassword = await encrypt.hashedPassword(req.body.password);
-
-        const user = {
-            name: req.body.name,
-            email: req.body.email.trim().toLowerCase(),
-            phone: req.body.phone,
-            password: hashedPassword,
-            role: req.body.role,
-            product: req.body.product,
-            address: req.body.address, // ✅ directly use array from Postman
-            isActive: req.body.isActive,
-            gender: req.body.gender
-        };
-
-        const response = await userSchema.create(user);
-        const emailBody = `
-  <div style="font-family: Arial, sans-serif; text-align: center; padding: 25px; background: #f9f9f9;">
-  <h2 style="color: #2E4057; margin-bottom: 15px;">🙏 Welcome to Astro Anekant!</h2>
-
-  <p style="color: #333; font-size: 16px; line-height: 1.6;">
-    Dear <strong>${user.name} ji</strong>, <br />
-    Thank you for joining <strong>Astro Anekant</strong>. 🌟 <br />
-    We’re truly grateful to have you in our spiritual community.
-  </p>
-
-  <p style="color: #555; font-size: 15px; margin-top: 15px; line-height: 1.5;">
-    You can now explore powerful astro remedies, products, and guidance 
-    that bring positivity and balance to your life.
-  </p>
-
-  <p style="color: #555; font-size: 14px; margin-top: 20px;">
-    If you have any query, feel free to reach us anytime. <br />
-    📧 <strong>astroanekant@gmail.com</strong>  
-    <br />🌐 <a href="https://astroanekant.com" style="color: #2E4057; text-decoration: none;">Visit our website</a>
-  </p>
-
-  <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
-
-  <p style="color: #999; font-size: 12px;">
-    © ${new Date().getFullYear()} Astro Anekant. All rights reserved.
-  </p>
-</div>
-`;
-
-        await mailUtil.sendingMail(user.email, "Account created with Astro Anekant successfully!", emailBody)
-
-
-        res.status(201).json({
-            data: response,
-            message: "User Added Successfully"
+  try {
+    // Validate mandatory fields
+    const requiredFields = ["name", "email", "phone", "password", "role", "gender"];
+    for (const field of requiredFields) {
+      if (!req.body[field] || req.body[field].toString().trim() === "") {
+        return res.status(400).json({
+          message: "User Not Added",
+          error: `${field} is required`
         });
-    } catch (err) {
-        console.error(err);
-        res.status(400).json({
-            message: "User Not Added",
-            error: err.message
-        });
+      }
     }
+
+    // Enforce minimum password length
+    if (req.body.password.length < 6) {
+      return res.status(400).json({
+        message: "User Not.. Added",
+        error: "Password must be at least 6 characters"
+      });
+    }
+
+    // Check for duplicate email/phone
+    const existingUser = await userSchema.findOne({
+      $or: [
+        { email: req.body.email.trim().toLowerCase() },
+        { phone: req.body.phone }
+      ]
+    });
+    if (existingUser) {
+      return res.status(409).json({
+        message: "User Not.. Added",
+        error: "Email or phone already registered"
+      });
+    }
+
+    // Hash password securely
+    const hashedPassword = await encrypt.hashedPassword(req.body.password);
+
+    // Prepare user object
+    const user = {
+      name: req.body.name.trim(),
+      email: req.body.email.trim().toLowerCase(),
+      phone: req.body.phone,
+      password: hashedPassword,
+      role: req.body.role,
+      product: req.body.product,
+      address: req.body.address,
+      isActive: req.body.isActive !== undefined ? req.body.isActive : true,
+      gender: req.body.gender
+    };
+
+    // Insert new user into DB
+    const response = await userSchema.create(user);
+
+    // Compose and send welcome email
+    const emailBody = `
+      <div style="font-family: Arial, sans-serif; text-align: center; padding: 25px; background: #f9f9f9;">
+        <h2 style="color: #2E4057; margin-bottom: 15px;">🙏 Welcome to Astro Anekant!</h2>
+        <p style="color: #333; font-size: 16px; line-height: 1.6;">
+          Dear <strong>${user.name} ji</strong>,<br />
+          Thank you for joining <strong>Astro Anekant</strong>. 🌟<br />
+          We’re truly grateful to have you in our spiritual community.
+        </p>
+        <p style="color: #555; font-size: 15px; margin-top: 15px; line-height: 1.5;">
+          You can now explore powerful astro remedies, products, and guidance 
+          that bring positivity and balance to your life.
+        </p>
+        <p style="color: #555; font-size: 14px; margin-top: 20px;">
+          If you have any query, feel free to reach us anytime.<br />
+          📧 <strong>astroanekant@gmail.com</strong>
+          <br />🌐 <a href="https://astroanekant.com" style="color: #2E4057; text-decoration: none;">Visit our website</a>
+        </p>
+        <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
+        <p style="color: #999; font-size: 12px;">
+          © ${new Date().getFullYear()} Astro Anekant. All rights reserved.
+        </p>
+      </div>
+    `;
+    await mailUtil.sendingMail(user.email, "Account created with Astro Anekant successfully!", emailBody);
+
+    // Send frontend-friendly success response
+    res.status(201).json({
+      data: response,
+      message: "User Added Successfully"
+    });
+  } catch (err) {
+    // Detailed error for frontend
+    console.error("UserAdd error:", err);
+    res.status(500).json({
+      message: "User Not.. Added",
+      error: err.message || String(err)
+    });
+  }
 };
+
 
 
 // get all useres
