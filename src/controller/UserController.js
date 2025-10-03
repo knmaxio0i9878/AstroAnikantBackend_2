@@ -24,7 +24,7 @@ const UserAdd = async (req, res) => {
     // Enforce minimum password length
     if (req.body.password.length < 6) {
       return res.status(400).json({
-        message: "User Not.. Added",
+        message: "User Not Added",
         error: "Password must be at least 6 characters"
       });
     }
@@ -38,7 +38,7 @@ const UserAdd = async (req, res) => {
     });
     if (existingUser) {
       return res.status(409).json({
-        message: "User Not.. Added",
+        message: "User Not Added",
         error: "Email or phone already registered"
       });
     }
@@ -97,7 +97,7 @@ const UserAdd = async (req, res) => {
     // Detailed error for frontend
     console.error("UserAdd error:", err);
     res.status(500).json({
-      message: "User Not.. Added",
+      message: "User Not Added",
       error: err.message || String(err)
     });
   }
