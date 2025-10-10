@@ -3,6 +3,8 @@ const encrypt = require("../service/Encrypt")
 const tokenUtil = require("../service/Token")
 const mailUtil = require("../service/MailUtil")
 const jwt = require("jsonwebtoken");
+const dotenv = require("dotenv");
+dotenv.config();
 
 
 
@@ -228,36 +230,39 @@ const getForgotUserByEmail = async (req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
-        // Generate JWT token with expiry (1h recommended)
         const token = jwt.sign(
             { _id: user._id, email: user.email },
-            "parth1923", // keep in .env for security
+            process.env.JWT_SECRET,
             { expiresIn: "1h" }
         );
 
-        // Reset link points to frontend route
         const resetLink = `https://astroanekant.com/emailresetpassword/${token}`;
 
-        const emailBody = `
-      <p>Hello ${user.name || "User"},</p>
-      <p>You requested to reset your password. Click the link below:</p>
-      <p><a href="${resetLink}">Reset Password</a></p>
-      <p>If you did not request this, please ignore this email.</p>
-    `;
-
-        await mailUtil.sendingMail(
-            user.email,
-            "Password Reset Request",
-            emailBody
-        );
-
-        return res.status(200).json({
-            message: "Password reset email sent successfully",
+        // Return immediately
+        res.status(200).json({
+            message: "If the email exists, a reset link will be sent",
         });
 
+        // Send email asynchronously with timeout protection
+        const emailPromise = mailUtil.sendingMail(
+            user.email,
+            "Password Reset Request",
+            `<p>Hello ${user.name || "User"},</p>
+             <p>You requested to reset your password. Click the link below:</p>
+             <p><a href="${resetLink}">Reset Password</a></p>
+             <p>If you did not request this, please ignore this email.</p>`
+        );
+
+        const timeout = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Email timeout')), 25000)
+        );
+
+        Promise.race([emailPromise, timeout])
+            .catch(err => console.error("Email Error:", err));
+
     } catch (error) {
-        console.error("Forgot Password Error:", error.message);
-        return res.status(500).json({ message: "Server error", error: error.message });
+        console.error("Forgot Password Error:", error);
+        return res.status(500).json({ message: "Server error" });
     }
 };
 const updateForgotUserEmail = async (req, res) => {
