@@ -9,7 +9,6 @@ dotenv.config();
 
 
 
-// add user
 const UserAdd = async (req, res) => {
   try {
     // Validate mandatory fields
@@ -64,39 +63,51 @@ const UserAdd = async (req, res) => {
     // Insert new user into DB
     const response = await userSchema.create(user);
 
-    // Compose and send welcome email
-    const emailBody = `
-      <div style="font-family: Arial, sans-serif; text-align: center; padding: 25px; background: #f9f9f9;">
-        <h2 style="color: #2E4057; margin-bottom: 15px;">🙏 Welcome to Astro Anekant!</h2>
-        <p style="color: #333; font-size: 16px; line-height: 1.6;">
-          Dear <strong>${user.name} ji</strong>,<br />
-          Thank you for joining <strong>Astro Anekant</strong>. 🌟<br />
-          We’re truly grateful to have you in our spiritual community.
-        </p>
-        <p style="color: #555; font-size: 15px; margin-top: 15px; line-height: 1.5;">
-          You can now explore powerful astro remedies, products, and guidance 
-          that bring positivity and balance to your life.
-        </p>
-        <p style="color: #555; font-size: 14px; margin-top: 20px;">
-          If you have any query, feel free to reach us anytime.<br />
-          📧 <strong>astroanekant@gmail.com</strong>
-          <br />🌐 <a href="https://astroanekant.com" style="color: #2E4057; text-decoration: none;">Visit our website</a>
-        </p>
-        <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
-        <p style="color: #999; font-size: 12px;">
-          © ${new Date().getFullYear()} Astro Anekant. All rights reserved.
-        </p>
-      </div>
-    `;
-    await mailUtil.sendingMail(user.email, "Account created with Astro Anekant successfully!", emailBody);
+    // Try to send email but don't fail if it doesn't work
+    try {
+      const emailBody = `
+        <div style="font-family: Arial, sans-serif; text-align: center; padding: 25px; background: #f9f9f9;">
+          <h2 style="color: #2E4057; margin-bottom: 15px;">🙏 Welcome to Astro Anekant!</h2>
+          <p style="color: #333; font-size: 16px; line-height: 1.6;">
+            Dear <strong>${user.name} ji</strong>,<br />
+            Thank you for joining <strong>Astro Anekant</strong>. 🌟<br />
+            We're truly grateful to have you in our spiritual community.
+          </p>
+          <p style="color: #555; font-size: 15px; margin-top: 15px; line-height: 1.5;">
+            You can now explore powerful astro remedies, products, and guidance 
+            that bring positivity and balance to your life.
+          </p>
+          <p style="color: #555; font-size: 14px; margin-top: 20px;">
+            If you have any query, feel free to reach us anytime.<br />
+            📧 <strong>astroanekant@gmail.com</strong>
+            <br />🌐 <a href="https://astroanekant.com" style="color: #2E4057; text-decoration: none;">Visit our website</a>
+          </p>
+          <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
+          <p style="color: #999; font-size: 12px;">
+            © ${new Date().getFullYear()} Astro Anekant. All rights reserved.
+          </p>
+        </div>
+      `;
+      
+      // Set timeout for email sending (5 seconds max)
+      await Promise.race([
+        mailUtil.sendingMail(user.email, "Account created with Astro Anekant successfully!", emailBody),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Email timeout')), 5000))
+      ]);
+      
+      console.log("Welcome email sent successfully");
+    } catch (emailError) {
+      // Log email error but don't fail the request
+      console.error("Email sending failed:", emailError.message);
+      // You could add the user to a queue for retry later
+    }
 
-    // Send frontend-friendly success response
+    // Always return success if user was created
     res.status(201).json({
       data: response,
       message: "User Added Successfully"
     });
   } catch (err) {
-    // Detailed error for frontend
     console.error("UserAdd error:", err);
     res.status(500).json({
       message: "User Not Added",
