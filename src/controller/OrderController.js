@@ -2,14 +2,21 @@ const orderSchema = require("../models/OrderModel")
 const mailUtil = require("../service/MailUtil")
 const cartSchema = require("../models/Cart")
 const shipRocketService = require('../service/ShipRocket');
+const { sendingMail } = require("../service/MailUtil"); // Update the path
 
 
 // ADD THIS IMPORT AT THE TOP OF YOUR CONTROLLER FILE
+
 const createOrder = async (req, res) => {
     try {
         const order = {
             cart: req.body.cart,
-            typeOfPayment: req.body.typeOfPayment
+            typeOfPayment: req.body.typeOfPayment,
+            shippingAddress: req.body.shippingAddress,
+            orderNotes: req.body.orderNotes,
+            deliveryPreference: req.body.deliveryPreference,
+            amount: req.body.amount,
+            status: req.body.status || 'pending'
         };
 
         const response = await orderSchema.create(order);
@@ -35,87 +42,65 @@ const createOrder = async (req, res) => {
         console.log('=== DEBUG POPULATED ORDER ===');
         console.log('Order exists:', !!populatedOrder);
         console.log('Cart exists:', !!populatedOrder?.cart);
-        console.log('User exists:', !!populatedOrder?.cart?.user);
 
-        if (!populatedOrder || !populatedOrder.cart || !populatedOrder.cart.user) {
+        if (!populatedOrder || !populatedOrder.cart) {
             console.error('Population failed - missing data');
-            // Don't fail the order - just skip ShipRocket
             return res.status(200).json({
                 data: response,
                 message: "Order Placed Successfully (without shipping integration)",
-                note: "User/cart data missing - ShipRocket integration skipped"
+                note: "Cart data missing - ShipRocket integration skipped"
             });
         }
 
-        const user = populatedOrder.cart.user;
-        console.log('User data:', JSON.stringify(user, null, 2));
-
-        // Always use default address to avoid any address-related failures
-        const defaultAddress = {
-            societyName: "Default Society",
-            street: "Default Street",
-            city: "Ahmedabad",
-            state: "Gujarat", 
-            country: "India",
-            pincode: 380001
-        };
-
-        // Get user address or use default - but always fallback to default if anything is missing
-        let userAddress = defaultAddress;
-        if (user.address && Array.isArray(user.address) && user.address.length > 0) {
-            const firstAddress = user.address[0];
-            // Only use user address if it has all required fields
-            if (firstAddress.city && firstAddress.state && firstAddress.pincode) {
-                userAddress = {
-                    societyName: firstAddress.societyName || "Default Society",
-                    street: firstAddress.street || "Default Street",
-                    city: firstAddress.city,
-                    state: firstAddress.state,
-                    country: firstAddress.country || "India",
-                    pincode: firstAddress.pincode
-                };
-                console.log('Using user address:', userAddress);
-            } else {
-                console.log('User address incomplete, using default address');
-            }
-        } else {
-            console.log('No address found for user, using default address');
-        }
-
-        // Create comprehensive clean address with robust defaults
-        const cleanAddress = {
-            name: (user.name && user.name.trim()) ? user.name.trim() : 'Customer',
-            email: (user.email && user.email.trim() && /\S+@\S+\.\S+/.test(user.email.trim())) ? user.email.trim() : 'customer@example.com',
-            phone: '9999999999' // Default phone
-        };
-
-        // Clean and validate phone
-        if (user.phone) {
-            let phone = user.phone.toString().replace(/\D/g, ''); // Remove non-digits
-            if (phone.length === 10) {
-                cleanAddress.phone = phone;
-            }
-        }
-
-        // Build complete address string with guaranteed content
-        const addressParts = [
-            userAddress.societyName || "Default Society",
-            userAddress.street || "Default Street"
-        ].filter(part => part && part.trim());
+        // USE THE SHIPPING ADDRESS FROM THE FORM (req.body.shippingAddress)
+        const shippingAddress = req.body.shippingAddress;
         
-        cleanAddress.address = addressParts.join(', ');
-        cleanAddress.city = userAddress.city || 'Ahmedabad';
-        cleanAddress.state = userAddress.state || 'Gujarat';
-        cleanAddress.country = userAddress.country || 'India';
-
-        // Handle pincode - ensure it's a valid 6-digit string
-        let pincode = userAddress.pincode ? userAddress.pincode.toString().trim() : '380001';
-        if (!/^\d{6}$/.test(pincode)) {
-            pincode = '380001';
+        if (!shippingAddress || !shippingAddress.address || !shippingAddress.city || 
+            !shippingAddress.state || !shippingAddress.pincode) {
+            console.error('Shipping address incomplete');
+            return res.status(200).json({
+                data: response,
+                message: "Order Placed Successfully (incomplete shipping address)",
+                note: "Shipping address incomplete - ShipRocket integration skipped"
+            });
         }
-        cleanAddress.pincode = pincode;
 
-        console.log('Final cleaned address:', cleanAddress);
+        // Clean the phone number - remove non-digits
+        let cleanPhone = shippingAddress.phone.toString().replace(/\D/g, '');
+        if (cleanPhone.length === 10) {
+            // Phone is good
+        } else if (cleanPhone.length === 12 && cleanPhone.startsWith('91')) {
+            cleanPhone = cleanPhone.substring(2); // Remove country code
+        } else {
+            console.error('Invalid phone number format');
+            return res.status(200).json({
+                data: response,
+                message: "Order Placed Successfully (invalid phone number)",
+                note: "Phone number invalid - ShipRocket integration skipped"
+            });
+        }
+
+        // Validate email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(shippingAddress.email)) {
+            console.error('Invalid email format');
+            return res.status(200).json({
+                data: response,
+                message: "Order Placed Successfully (invalid email)",
+                note: "Email invalid - ShipRocket integration skipped"
+            });
+        }
+
+        // Ensure pincode is 6 digits
+        const pincode = shippingAddress.pincode.toString().trim();
+        if (!/^\d{6}$/.test(pincode)) {
+            console.error('Invalid pincode format');
+            return res.status(200).json({
+                data: response,
+                message: "Order Placed Successfully (invalid pincode)",
+                note: "Pincode invalid - ShipRocket integration skipped"
+            });
+        }
 
         // Calculate total weight, amount and prepare order items
         let totalWeight = 0;
@@ -123,7 +108,7 @@ const createOrder = async (req, res) => {
         const orderItems = [];
 
         if (!populatedOrder.cart.items || populatedOrder.cart.items.length === 0) {
-            console.log('No items in cart, creating order without ShipRocket');
+            console.log('No items in cart');
             return res.status(200).json({
                 data: response,
                 message: "Order Placed Successfully (no items for shipping)",
@@ -131,7 +116,7 @@ const createOrder = async (req, res) => {
             });
         }
 
-        // Process cart items with robust error handling
+        // Process cart items
         let hasValidItems = false;
         populatedOrder.cart.items.forEach((item, index) => {
             if (!item.product) {
@@ -139,7 +124,7 @@ const createOrder = async (req, res) => {
                 return;
             }
 
-            // Handle pricing - provide meaningful defaults
+            // Handle pricing
             let finalPrice = 0;
             const discountedPrice = parseFloat(item.product.discountedPrice);
             const originalPrice = parseFloat(item.product.price);
@@ -150,10 +135,10 @@ const createOrder = async (req, res) => {
                 finalPrice = originalPrice;
             } else {
                 console.log(`Product ${item.product.name || item.product._id} has no valid price, using default`);
-                finalPrice = 100; // Default price
+                finalPrice = 100;
             }
 
-            // Handle weight with robust fallback
+            // Handle weight
             let weight = 0.5; // Default weight
             if (item.product.weight) {
                 if (typeof item.product.weight === 'object' && item.product.weight.value) {
@@ -179,7 +164,7 @@ const createOrder = async (req, res) => {
         });
 
         if (!hasValidItems || totalAmount <= 0) {
-            console.log('No valid items found, creating order without ShipRocket');
+            console.log('No valid items found');
             return res.status(200).json({
                 data: response,
                 message: "Order Placed Successfully (invalid items for shipping)",
@@ -189,157 +174,241 @@ const createOrder = async (req, res) => {
 
         console.log('Calculated totals:', { totalAmount, totalWeight, itemCount: orderItems.length });
 
-        // Always try ShipRocket but never let it fail the order
+        // Prepare variables for final response
+        let finalOrderData = response;
+        let orderMessage = "Order Placed Successfully";
+        let shipmentDetails = null;
+
+        // Try ShipRocket integration
         try {
-            // Check if ShipRocket service is blocked
             const serviceStatus = shipRocketService.getServiceStatus();
             if (serviceStatus.isBlocked) {
                 console.log('ShipRocket service is temporarily blocked');
-                return res.status(200).json({
-                    data: response,
-                    message: "Order Placed Successfully (ShipRocket temporarily unavailable)",
-                    note: "ShipRocket service is blocked due to rate limiting"
-                });
-            }
+            } else {
+                console.log('Attempting ShipRocket integration...');
+                await shipRocketService.authenticate();
 
-            console.log('Attempting ShipRocket integration...');
-            await shipRocketService.authenticate();
+                // Try multiple pickup location options
+                const pickupOptions = [
+                    "Primary", 
+                    "primary", 
+                    "PRIMARY",
+                    "Default",
+                    "default", 
+                    "Main",
+                    "Warehouse"
+                ];
 
-            // Try multiple pickup location options
-            const pickupOptions = [
-                "Primary", 
-                "primary", 
-                "PRIMARY",
-                "Default",
-                "default", 
-                "Main",
-                "Warehouse"
-            ];
+                let shipmentResponse = null;
+                let shipRocketOrderData = null;
 
-            let shipmentResponse = null;
-            let shipRocketOrderData = null;
+                for (const pickupLocation of pickupOptions) {
+                    try {
+                        // BUILD SHIPROCKET ORDER DATA USING FORM SHIPPING ADDRESS
+                        shipRocketOrderData = {
+                            order_id: response._id.toString(),
+                            order_date: new Date().toISOString().split('T')[0],
+                            pickup_location: pickupLocation,
+                            
+                            // USE SHIPPING ADDRESS FROM FORM
+                            billing_customer_name: shippingAddress.firstName,
+                            billing_last_name: shippingAddress.lastName,
+                            billing_address: shippingAddress.address,
+                            billing_address_2: shippingAddress.deliveryInstructions || "",
+                            billing_city: shippingAddress.city,
+                            billing_pincode: pincode,
+                            billing_state: shippingAddress.state,
+                            billing_country: "India",
+                            billing_email: shippingAddress.email,
+                            billing_phone: cleanPhone,
+                            
+                            // Shipping address - same as billing
+                            shipping_is_billing: true,
+                            
+                            order_items: orderItems,
+                            payment_method: 'COD',
+                            shipping_charges: 0,
+                            giftwrap_charges: 0,
+                            transaction_charges: 0,
+                            total_discount: 0,
+                            sub_total: Math.round(totalAmount),
+                            length: 10,
+                            breadth: 10,
+                            height: 10,
+                            weight: Math.max(parseFloat(totalWeight.toFixed(2)), 0.1)
+                        };
 
-            for (const pickupLocation of pickupOptions) {
-                try {
-                    shipRocketOrderData = {
-                        order_id: response._id.toString(),
-                        order_date: new Date().toISOString().split('T')[0],
-                        pickup_location: pickupLocation,
+                        console.log(`Trying pickup location: ${pickupLocation}`);
                         
-                        // Billing address - guaranteed valid fields
-                        billing_customer_name: cleanAddress.name,
-                        billing_last_name: "",
-                        billing_address: cleanAddress.address,
-                        billing_address_2: "",
-                        billing_city: cleanAddress.city,
-                        billing_pincode: cleanAddress.pincode,
-                        billing_state: cleanAddress.state,
-                        billing_country: cleanAddress.country,
-                        billing_email: cleanAddress.email,
-                        billing_phone: cleanAddress.phone,
+                        shipmentResponse = await shipRocketService.createShipment(shipRocketOrderData);
                         
-                        // Shipping address - same as billing
-                        shipping_is_billing: true,
-                        
-                        order_items: orderItems,
-                        payment_method: (req.body.typeOfPayment === 'COD') ? 'COD' : 'Prepaid',
-                        shipping_charges: 0,
-                        giftwrap_charges: 0,
-                        transaction_charges: 0,
-                        total_discount: 0,
-                        sub_total: Math.round(totalAmount),
-                        length: 10,
-                        breadth: 10,
-                        height: 10,
-                        weight: Math.max(parseFloat(totalWeight.toFixed(2)), 0.1) // Ensure minimum weight
+                        if (shipmentResponse && shipmentResponse.status_code === 1) {
+                            console.log(`Success with pickup location: ${pickupLocation}`);
+                            break;
+                        }
+                    } catch (pickupError) {
+                        console.log(`Pickup location ${pickupLocation} failed:`, pickupError.response?.data?.message || pickupError.message);
+                        continue;
+                    }
+                }
+
+                // If all pickup locations failed, try without pickup location
+                if (!shipmentResponse || shipmentResponse.status_code !== 1) {
+                    try {
+                        console.log('Trying without pickup_location field...');
+                        const { pickup_location, ...orderDataWithoutPickup } = shipRocketOrderData;
+                        shipmentResponse = await shipRocketService.createShipment(orderDataWithoutPickup);
+                    } catch (nopickupError) {
+                        console.log('Failed without pickup_location:', nopickupError.response?.data?.message || nopickupError.message);
+                    }
+                }
+                
+                if (shipmentResponse && shipmentResponse.status_code === 1) {
+                    // Update order with shipment details
+                    const updateData = {
+                        'shipment.shiprocket_order_id': shipmentResponse.order_id,
+                        'shipment.shipment_id': shipmentResponse.shipment_id
                     };
 
-                    console.log(`Trying pickup location: ${pickupLocation}`);
-                    shipmentResponse = await shipRocketService.createShipment(shipRocketOrderData);
-                    
-                    if (shipmentResponse && shipmentResponse.status_code === 1) {
-                        console.log(`Success with pickup location: ${pickupLocation}`);
-                        break;
-                    } else {
-                        console.log(`Failed with pickup location: ${pickupLocation}`, shipmentResponse);
+                    if (shipmentResponse.awb_code) {
+                        updateData['shipment.awb_code'] = shipmentResponse.awb_code;
                     }
-                } catch (pickupError) {
-                    console.log(`Pickup location ${pickupLocation} failed:`, pickupError.response?.data?.message || pickupError.message);
-                    continue;
-                }
-            }
 
-            // If all pickup locations failed, try without pickup location
-            if (!shipmentResponse || shipmentResponse.status_code !== 1) {
-                try {
-                    console.log('Trying without pickup_location field...');
-                    const { pickup_location, ...orderDataWithoutPickup } = shipRocketOrderData;
-                    shipmentResponse = await shipRocketService.createShipment(orderDataWithoutPickup);
-                } catch (nopickupError) {
-                    console.log('Failed without pickup_location:', nopickupError.response?.data?.message || nopickupError.message);
-                }
-            }
-            
-            if (shipmentResponse && shipmentResponse.status_code === 1) {
-                // Update order with shipment details
-                const updateData = {
-                    'shipment.shiprocket_order_id': shipmentResponse.order_id,
-                    'shipment.shipment_id': shipmentResponse.shipment_id,
-                    'shipping_address': cleanAddress
-                };
-
-                if (shipmentResponse.awb_code) {
-                    updateData['shipment.awb_code'] = shipmentResponse.awb_code;
-                }
-
-                const updatedOrder = await orderSchema.findByIdAndUpdate(
-                    response._id, 
-                    updateData,
-                    { new: true }
-                );
-                
-                console.log('ShipRocket order created successfully!');
-                
-                return res.status(200).json({
-                    data: updatedOrder,
-                    message: "Order Placed Successfully with ShipRocket",
-                    shipment_details: {
+                    const updatedOrder = await orderSchema.findByIdAndUpdate(
+                        response._id, 
+                        updateData,
+                        { new: true }
+                    );
+                    
+                    console.log('ShipRocket order created successfully!');
+                    
+                    finalOrderData = updatedOrder;
+                    orderMessage = "Order Placed Successfully with ShipRocket";
+                    shipmentDetails = {
                         shiprocket_order_id: shipmentResponse.order_id,
                         shipment_id: shipmentResponse.shipment_id,
                         awb_code: shipmentResponse.awb_code || null
-                    }
-                });
-            } else {
-                console.log('All ShipRocket attempts failed, completing order without shipping');
-                return res.status(200).json({
-                    data: response,
-                    message: "Order Placed Successfully (ShipRocket integration failed)",
-                    note: "Order completed successfully but shipping integration could not be configured"
-                });
+                    };
+                }
             }
-            
         } catch (shipmentError) {
             console.error('ShipRocket integration failed:', shipmentError.message);
-            
-            // NEVER let ShipRocket errors fail the order
-            return res.status(200).json({
-                data: response,
-                message: "Order Placed Successfully (ShipRocket integration failed)",
-                note: "Order completed successfully but shipping integration encountered an error",
-                error_details: shipmentError.response?.data?.message || shipmentError.message
-            });
         }
+
+        // ===== SEND ORDER CONFIRMATION EMAIL =====
+        try {
+            const customerName = `${shippingAddress.firstName} ${shippingAddress.lastName} ji`;
+            
+            // Build order items HTML
+            let itemsHTML = '';
+            orderItems.forEach(item => {
+                itemsHTML += `
+                    <tr>
+                        <td style="padding: 12px; border-bottom: 1px solid #eee;">${item.name}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center;">${item.units}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">₹${item.selling_price.toFixed(2)}</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">₹${(item.selling_price * item.units).toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            const emailHTML = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                </head>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                        <h1 style="color: white; margin: 0; font-size: 28px;">🙏 Namaste ${customerName}</h1>
+                    </div>
+                    
+                    <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                        <p style="font-size: 16px; color: #555;">Thank you for placing your order with us. We are honored to serve you.</p>
+                        
+                        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h2 style="color: #667eea; margin-top: 0; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Order Details</h2>
+                            <p><strong>Order ID:</strong> ${response._id}</p>
+                            <p><strong>Order Date:</strong> ${new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                            <p><strong>Payment Method:</strong> Cash on Delivery (COD)</p>
+                            ${shipmentDetails ? `<p><strong>Tracking ID:</strong> ${shipmentDetails.awb_code || 'Will be updated soon'}</p>` : ''}
+                        </div>
+
+                        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h2 style="color: #667eea; margin-top: 0; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Order Items</h2>
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background: #f5f5f5;">
+                                        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #667eea;">Item</th>
+                                        <th style="padding: 12px; text-align: center; border-bottom: 2px solid #667eea;">Qty</th>
+                                        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #667eea;">Price</th>
+                                        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #667eea;">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${itemsHTML}
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="3" style="padding: 12px; text-align: right; font-weight: bold; font-size: 16px;">Grand Total:</td>
+                                        <td style="padding: 12px; text-align: right; font-weight: bold; font-size: 16px; color: #667eea;">₹${totalAmount.toFixed(2)}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <h2 style="color: #667eea; margin-top: 0; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Delivery Address</h2>
+                            <p style="margin: 5px 0;"><strong>${shippingAddress.firstName} ${shippingAddress.lastName}</strong></p>
+                            <p style="margin: 5px 0;">${shippingAddress.address}</p>
+                            <p style="margin: 5px 0;">${shippingAddress.city}, ${shippingAddress.state} - ${pincode}</p>
+                            <p style="margin: 5px 0;">Phone: ${shippingAddress.phone}</p>
+                            ${shippingAddress.deliveryInstructions ? `<p style="margin: 5px 0;"><em>Note: ${shippingAddress.deliveryInstructions}</em></p>` : ''}
+                        </div>
+
+                        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                            <p style="margin: 0; color: #856404;"><strong>📦 Next Steps:</strong> Your order is being processed and will be shipped shortly. You will receive tracking details via email once dispatched.</p>
+                        </div>
+
+                        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+                            <p style="color: #777; font-size: 14px;">If you have any questions, please don't hesitate to contact us.</p>
+                            <p style="color: #777; font-size: 14px; margin: 10px 0;">🙏 Thank you for choosing us!</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            await sendingMail(
+                shippingAddress.email,
+                `Order Confirmation - ${response._id}`,
+                emailHTML
+            );
+            
+            console.log('Order confirmation email sent successfully to:', shippingAddress.email);
+        } catch (emailError) {
+            console.error('Failed to send order confirmation email:', emailError.message);
+            // Don't fail the order if email fails
+        }
+
+        // Return final response
+        return res.status(200).json({
+            data: finalOrderData,
+            message: orderMessage,
+            ...(shipmentDetails && { shipment_details: shipmentDetails })
+        });
 
     } catch (error) {
         console.error('Order creation error:', error.message);
         
-        // Even if everything fails, try to return the basic order if it was created
         return res.status(500).json({
             message: "Order creation failed",
             error: error.message
         });
     }
 };
+
 const getAllOrder = async (req, res) => {
     try {
         const order = await orderSchema.find().populate({
