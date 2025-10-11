@@ -244,7 +244,7 @@ const getForgotUserByEmail = async (req, res) => {
         const token = jwt.sign(
             { _id: user._id, email: user.email },
             process.env.JWT_SECRET,
-            { expiresIn: "1h" }
+            { expiresIn: "2h" }
         );
 
         const resetLink = `https://astroanekant.com/emailresetpassword/${token}`;
