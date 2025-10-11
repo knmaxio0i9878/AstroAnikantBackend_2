@@ -21,14 +21,14 @@ const VisitsSchema = {
         type: String,
         require: true
     },
-    visit_date: {
-        type: Date,
-        require: true
-    },
-    time: {
-        type: String,
-        require: true
-    },
+    // visit_date: {
+    //     type: Date,
+    //     require: true
+    // },
+    // time: {
+    //     type: String,
+    //     require: true
+    // },
     amount: {
         type: Number,
         default: 99
@@ -36,6 +36,10 @@ const VisitsSchema = {
     status: {
         type: String,
         default: "Pending"
+    },
+     upiTransactionId: {  // NEW FIELD
+        type: String,
+        default: null
     }
 }
 module.exports = mongoose.model("Visits", VisitsSchema)
