@@ -286,7 +286,7 @@ const updateForgotUserEmail = async (req, res) => {
 
     try {
         // Verify token
-        const decoded = jwt.verify(token, "parth1923");
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const userId = decoded._id;
 
         // Hash new password
