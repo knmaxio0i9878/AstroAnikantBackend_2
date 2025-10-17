@@ -81,6 +81,56 @@ exports.markHelpful = async (req, res) => {
   }
 };
 
+// Delete a review (Admin only)
+exports.deleteReview = async (req, res) => {
+  try {
+    const review = await Review.findById(req.params.reviewId);
+    
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: 'Review not found'
+      });
+    }
+
+    const productId = review.product;
+    await Review.findByIdAndDelete(req.params.reviewId);
+
+    // Update product average rating after deletion
+    await updateProductRating(productId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Review deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Get all reviews (Admin only)
+exports.getAllReviews = async (req, res) => {
+  try {
+    const reviews = await Review.find()
+      .populate('user', 'name email')
+      .populate('product', 'name')
+      .sort({ createdAt: -1 });
+    
+    res.status(200).json({
+      success: true,
+      data: reviews
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 // Helper function to update product average rating
 async function updateProductRating(productId) {
   const reviews = await Review.find({ product: productId });
