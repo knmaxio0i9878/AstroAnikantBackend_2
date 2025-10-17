@@ -597,7 +597,7 @@ const getUserOrders = async (req, res) => {
                     { path: "user" },
                     { 
                         path: "items.product",
-                        select: "name price images description shortDescription"
+                        select: "name price images description shortDescription discountedPrice"
                     }
                 ]
             });
