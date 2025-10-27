@@ -202,13 +202,35 @@ const getSingleProduct = async (req, res) => {
 };
 const getBestSellers = async (req, res) => {
     try {
-        const bestSellers = await ProductModel.find({ 
-            isFeatured: true, 
-            isActive: true 
-        })
-        .populate("category", "name")
-        .sort({ salesCount: -1 })
-        .limit(8);
+        // Get one featured/best-selling product per category
+        const bestSellers = await ProductModel.aggregate([
+            // Match active products
+            { $match: { isActive: true } },
+            
+            // Sort to prioritize featured products and high sales
+            { $sort: { isFeatured: -1, salesCount: -1, averageRating: -1 } },
+            
+            // Group by category and take the top product
+            {
+                $group: {
+                    _id: "$category",
+                    product: { $first: "$$ROOT" }
+                }
+            },
+            
+            { $replaceRoot: { newRoot: "$product" } },
+            
+            // Sort the final results
+            { $sort: { salesCount: -1 } },
+            
+            { $limit: 12 }
+        ]);
+        
+        // Populate category details
+        await ProductModel.populate(bestSellers, { 
+            path: "category", 
+            select: "name" 
+        });
 
         res.status(200).json({
             data: bestSellers,
@@ -222,7 +244,6 @@ const getBestSellers = async (req, res) => {
         });
     }
 };
-
 const quantityUpdate = async(req,res) =>{
     const id = req.params.id
     const response = await productSchema.findByIdAndUpdate(id,req.body,{new:true})
