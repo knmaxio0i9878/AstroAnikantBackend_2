@@ -46,6 +46,8 @@ router.post('/reset-shiprocket-block', (req, res) => {
     });
 });
 
+router.post('/shiprocket-webhook', orderController.handleShiprocketWebhook);
+
 
 
 

@@ -689,6 +689,164 @@ const trackOrder = async (req, res) => {
     }
 };
 
+// ADD THIS WEBHOOK HANDLER FUNCTION
+const handleShiprocketWebhook = async (req, res) => {
+    try {
+        console.log('=== SHIPROCKET WEBHOOK RECEIVED ===');
+        console.log('Webhook payload:', JSON.stringify(req.body, null, 2));
+
+        const { 
+            order_id, 
+            shipment_status, 
+            awb, 
+            courier_name,
+            current_status,
+            shipment_id 
+        } = req.body;
+
+        // Find order by shiprocket order_id
+        const order = await orderSchema.findOne({ 
+            'shipment.shiprocket_order_id': order_id 
+        });
+
+        if (!order) {
+            console.log(`Order not found for shiprocket_order_id: ${order_id}`);
+            return res.status(404).json({ 
+                message: 'Order not found',
+                success: false 
+            });
+        }
+
+        console.log(`Processing webhook for Order ID: ${order._id}`);
+
+        // Update order based on shipment status
+        const updateData = {};
+        
+        // Normalize the status (ShipRocket sends various status formats)
+        const normalizedStatus = (shipment_status || current_status || '').toUpperCase();
+        
+        console.log('Normalized status:', normalizedStatus);
+
+        // Map ShipRocket status to your order status
+        if (normalizedStatus === 'DELIVERED') {
+            updateData.status = 'completed';
+            console.log('✅ Setting order status to COMPLETED');
+        } else if (normalizedStatus === 'SHIPPED' || normalizedStatus === 'IN TRANSIT') {
+            updateData.status = 'processing';
+            console.log('📦 Setting order status to PROCESSING');
+        } else if (normalizedStatus === 'OUT FOR DELIVERY') {
+            updateData.status = 'processing';
+            console.log('🚚 Setting order status to PROCESSING (Out for delivery)');
+        } else if (normalizedStatus === 'RTO' || normalizedStatus === 'CANCELLED') {
+            updateData.status = 'cancelled';
+            console.log('❌ Setting order status to CANCELLED');
+        }
+
+        // Update AWB if provided
+        if (awb && !order.shipment.awb_code) {
+            updateData['shipment.awb_code'] = awb;
+            console.log('Updated AWB code:', awb);
+        }
+
+        // Update courier name if provided
+        if (courier_name) {
+            updateData['shipment.courier_name'] = courier_name;
+        }
+
+        // Perform the update
+        const updatedOrder = await orderSchema.findByIdAndUpdate(
+            order._id,
+            updateData,
+            { new: true }
+        ).populate({
+            path: "cart",
+            populate: [
+                { path: "user" },
+                { path: "items.product" }
+            ]
+        });
+
+        console.log('✅ Order updated successfully');
+
+        // Send delivery confirmation email if order is delivered
+        if (normalizedStatus === 'DELIVERED') {
+            try {
+                const user = updatedOrder.cart?.user;
+                const shippingAddress = updatedOrder.shippingAddress;
+                
+                if (user?.email || shippingAddress?.email) {
+                    const customerEmail = shippingAddress?.email || user?.email;
+                    const customerName = shippingAddress?.firstName 
+                        ? `${shippingAddress.firstName} ${shippingAddress.lastName}`
+                        : user?.name || 'Customer';
+
+                    const emailHTML = `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <meta charset="UTF-8">
+                        </head>
+                        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                                <h1 style="color: white; margin: 0;">🎉 Order Delivered!</h1>
+                            </div>
+                            
+                            <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                                <p style="font-size: 16px;">Dear ${customerName},</p>
+                                <p style="font-size: 16px;">Great news! Your order has been successfully delivered.</p>
+                                
+                                <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                                    <h2 style="color: #10b981; margin-top: 0;">Order Details</h2>
+                                    <p><strong>Order ID:</strong> ${order._id}</p>
+                                    <p><strong>Tracking Number:</strong> ${awb || order.shipment?.awb_code || 'N/A'}</p>
+                                    <p><strong>Courier:</strong> ${courier_name || 'N/A'}</p>
+                                    <p><strong>Delivery Date:</strong> ${new Date().toLocaleDateString('en-IN')}</p>
+                                </div>
+
+                                <div style="background: #d1fae5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                    <p style="margin: 0; color: #065f46;"><strong>💚 Thank you for shopping with us!</strong></p>
+                                    <p style="margin: 10px 0 0 0; color: #065f46;">We hope you love your purchase. If you have any questions or concerns, please don't hesitate to contact us.</p>
+                                </div>
+
+                                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+                                    <p style="color: #777; font-size: 14px;">🙏 Thank you for choosing us!</p>
+                                </div>
+                            </div>
+                        </body>
+                        </html>
+                    `;
+
+                    await sendingMail(
+                        customerEmail,
+                        `Order Delivered - ${order._id}`,
+                        emailHTML
+                    );
+                    
+                    console.log('✅ Delivery confirmation email sent to:', customerEmail);
+                }
+            } catch (emailError) {
+                console.error('Failed to send delivery email:', emailError.message);
+                // Don't fail the webhook if email fails
+            }
+        }
+
+        res.status(200).json({ 
+            success: true,
+            message: 'Webhook processed successfully',
+            order_id: order._id,
+            new_status: updateData.status
+        });
+
+    } catch (error) {
+        console.error('❌ Webhook processing error:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Webhook processing failed',
+            error: error.message 
+        });
+    }
+};
+
 // Update your module.exports
 module.exports = {
     createOrder,
@@ -697,5 +855,6 @@ module.exports = {
     deleteOrder,
     getUserOrders,
     assignCourier,    // ADD THIS
-    trackOrder        // ADD THIS
+    trackOrder,        // ADD THIS
+    handleShiprocketWebhook // ADD THIS
 };
