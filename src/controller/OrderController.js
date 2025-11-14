@@ -691,10 +691,21 @@ const trackOrder = async (req, res) => {
 
 // ADD THIS WEBHOOK HANDLER FUNCTION
 const handleShiprocketWebhook = async (req, res) => {
-    try {
+      try {
+        // Verify webhook token
+        const receivedToken = req.headers['x-api-key'];
+        const expectedToken = process.env.SHIPROCKET_WEBHOOK_TOKEN || 'sk_webhook_astroanikant_2025_secure_token';
+        
+        if (receivedToken !== expectedToken) {
+            console.log('❌ Invalid webhook token');
+            return res.status(401).json({ 
+                success: false,
+                message: 'Unauthorized - Invalid token' 
+            });
+        }
+
         console.log('=== SHIPROCKET WEBHOOK RECEIVED ===');
         console.log('Webhook payload:', JSON.stringify(req.body, null, 2));
-
         const { 
             order_id, 
             shipment_status, 
